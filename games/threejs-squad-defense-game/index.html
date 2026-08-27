@@ -1,0 +1,3712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Defensores del Reino - Estrategia 2.5D RTS</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      box-sizing: border-box;
+      font-family: 'Outfit', sans-serif;
+    }
+    .font-medieval {
+      font-family: 'Cinzel', serif;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0d1117;
+      color: #f3f4f6;
+    }
+    #game-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+    /* Selection Marquee Box */
+    #selection-marquee {
+      position: absolute;
+      border: 1.5px solid rgba(59, 130, 246, 0.9);
+      background-color: rgba(59, 130, 246, 0.2);
+      pointer-events: none;
+      display: none;
+      z-index: 30;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(217, 119, 6, 0.6);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.9);
+    }
+
+    /* Floating damage text layer */
+    #floating-text-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 25;
+      overflow: hidden;
+    }
+    .fct {
+      position: absolute;
+      font-weight: 800;
+      font-size: 15px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 2px #000;
+      transform: translate(-50%, -50%);
+      transition: transform 0.8s ease-out, opacity 0.8s ease-out;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* Pulse animation */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+      50% { box-shadow: 0 0 28px rgba(234, 179, 8, 0.8); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 2.5s infinite;
+    }
+    
+    @keyframes waveAlertAnim {
+      0% { transform: scale(0.85); opacity: 0; }
+      50% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-wave-alert {
+      animation: waveAlertAnim 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    /* Minimap crosshair viewport */
+    #minimap-camera-box {
+      position: absolute;
+      border: 1.5px solid rgba(255, 255, 255, 0.85);
+      background-color: rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Custom Glass Panel */
+    .glass-panel {
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.88) 0%, rgba(10, 15, 26, 0.94) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(217, 119, 6, 0.35);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 10px rgba(217, 119, 6, 0.15);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+    }
+    .glass-card:hover {
+      border-color: rgba(245, 158, 11, 0.6);
+      background: rgba(45, 55, 72, 0.85);
+    }
+    
+    .gold-gradient-text {
+      background: linear-gradient(to right, #fbbf24, #f59e0b, #d97706);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 select-none">
+
+  <!-- 3D WebGL Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Marquee Selection Overlay -->
+  <div id="selection-marquee"></div>
+
+  <!-- Floating Combat Text Overlay -->
+  <div id="floating-text-container"></div>
+
+  <!-- ================= TOP HUD: RESOURCES & WAVE PROGRESS ================= -->
+  <header class="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 md:gap-5 glass-panel px-4 py-2 rounded-2xl max-w-[96vw]">
+    
+    <!-- Village Health Bar -->
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-amber-950/80 border border-amber-500/50 flex items-center justify-center text-amber-400">
+        <i class="fa-solid fa-fort-awesome text-sm"></i>
+      </div>
+      <div class="flex flex-col min-w-[110px] md:min-w-[140px]">
+        <div class="flex justify-between text-[11px] font-bold text-amber-200">
+          <span>ALDEA</span>
+          <span id="hud-village-hp-text">1500/1500</span>
+        </div>
+        <div class="w-full bg-slate-800/90 h-2.5 rounded-full overflow-hidden border border-slate-700">
+          <div id="hud-village-hp-bar" class="bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full transition-all duration-300 w-full"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="h-6 w-[1px] bg-slate-700/60 hidden sm:block"></div>
+
+    <!-- Resources: Gold, Wood, Mana, Population -->
+    <div class="flex items-center gap-3 md:gap-5 text-xs md:text-sm font-semibold">
+      <!-- Gold -->
+      <div class="flex items-center gap-1.5 text-amber-300" title="Oro para reclutar y construir">
+        <i class="fa-solid fa-coins text-amber-400 drop-shadow"></i>
+        <span id="hud-gold" class="font-bold text-sm md:text-base">250</span>
+      </div>
+
+      <!-- Wood / Stone -->
+      <div class="flex items-center gap-1.5 text-emerald-300" title="Madera / Materiales">
+        <i class="fa-solid fa-tree text-emerald-400 drop-shadow"></i>
+        <span id="hud-wood" class="font-bold text-sm md:text-base">120</span>
+      </div>
+
+      <!-- Mana -->
+      <div class="flex items-center gap-1.5 text-cyan-300" title="Maná para hechizos de comandante">
+        <i class="fa-solid fa-wand-magic-sparkles text-cyan-400 drop-shadow"></i>
+        <span id="hud-mana" class="font-bold text-sm md:text-base">50/100</span>
+      </div>
+
+      <!-- Squad Cap -->
+      <div class="flex items-center gap-1.5 text-indigo-300" title="Tropas reclutadas / Límite">
+        <i class="fa-solid fa-users text-indigo-400 drop-shadow"></i>
+        <span id="hud-pop" class="font-bold">4/20</span>
+      </div>
+    </div>
+
+    <div class="h-6 w-[1px] bg-slate-700/60 hidden sm:block"></div>
+
+    <!-- Wave Tracker & Timer -->
+    <div class="flex items-center gap-3">
+      <div class="flex flex-col text-right">
+        <span class="text-[10px] text-amber-400/90 font-bold uppercase tracking-wider">OLEADA</span>
+        <span id="hud-wave-number" class="text-base md:text-lg font-medieval font-black text-amber-300 leading-tight">1 / 10</span>
+      </div>
+      <div id="hud-wave-timer-pill" class="px-2.5 py-1 rounded-xl bg-red-950/70 border border-red-500/40 text-red-300 font-mono text-xs flex items-center gap-1.5">
+        <i class="fa-regular fa-clock text-[10px] animate-pulse"></i>
+        <span id="hud-wave-timer">15s</span>
+      </div>
+    </div>
+
+    <!-- Top Action Buttons (Upgrades, Settings, Sound, Pause) -->
+    <div class="flex items-center gap-1.5 ml-1">
+      <button id="btn-open-tech" class="w-8 h-8 rounded-lg bg-amber-600/30 hover:bg-amber-600/60 border border-amber-500/60 text-amber-300 flex items-center justify-center transition" title="Mejoras y Herrería (U)">
+        <i class="fa-solid fa-shield-halved text-sm"></i>
+      </button>
+      <button id="btn-speed-toggle" class="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-600/60 text-slate-200 flex items-center justify-center transition text-xs font-bold" title="Velocidad del juego (1x / 2x)">
+        1x
+      </button>
+      <button id="btn-sound-toggle" class="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-600/60 text-slate-200 flex items-center justify-center transition" title="Silenciar / Activar Audio (M)">
+        <i id="sound-icon" class="fa-solid fa-volume-high text-xs"></i>
+      </button>
+      <button id="btn-help-toggle" class="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-600/60 text-slate-200 flex items-center justify-center transition" title="Guía y Controles (H)">
+        <i class="fa-solid fa-circle-question text-xs"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= WAVE BANNER NOTIFICATION ================= -->
+  <div id="wave-alert-banner" class="absolute top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none hidden transition-all duration-300">
+    <div class="glass-panel border-amber-500/80 px-6 py-2.5 rounded-2xl flex items-center gap-3 shadow-2xl shadow-amber-900/50 animate-wave-alert">
+      <div class="w-10 h-10 rounded-xl bg-red-600/40 border border-red-500 flex items-center justify-center text-red-400 text-lg">
+        <i class="fa-solid fa-skull"></i>
+      </div>
+      <div>
+        <div id="wave-alert-title" class="font-medieval font-black text-amber-300 text-lg md:text-xl tracking-wide uppercase">¡OLEADA 1 ENTRANTE!</div>
+        <div id="wave-alert-subtitle" class="text-xs text-slate-300">Goblins avanzan desde el Norte. ¡Defiendan la Aldea!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MINIMAP (BOTTOM-LEFT) ================= -->
+  <div class="absolute bottom-3 left-3 z-20 flex flex-col gap-1">
+    <div class="glass-panel p-1.5 rounded-2xl overflow-hidden relative">
+      <canvas id="minimap-canvas" width="150" height="150" class="rounded-xl block bg-slate-950/90 border border-slate-800 cursor-pointer"></canvas>
+      <div id="minimap-camera-box" class="rounded-[2px]"></div>
+      <div class="absolute bottom-2 left-2 text-[9px] font-bold text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded border border-slate-700/50">
+        MINIMAPA
+      </div>
+      <button id="btn-center-village" class="absolute top-2 right-2 w-6 h-6 rounded bg-slate-800/90 hover:bg-amber-600 border border-slate-700 text-[10px] text-amber-300 flex items-center justify-center" title="Centrar en Aldea (ESPACIO)">
+        <i class="fa-solid fa-house"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM-CENTER: COMMAND BAR & RECRUITMENT ================= -->
+  <div class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 max-w-[94vw]">
+    
+    <!-- Commander Spells / Tactical Powers -->
+    <div class="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-cyan-500/30">
+      <span class="text-[10px] uppercase font-bold text-cyan-400 tracking-wider mr-1 hidden sm:inline"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Poderes:</span>
+      
+      <!-- Spell 1: Rally Horn -->
+      <button id="spell-rally" class="relative group px-2.5 py-1.5 rounded-lg bg-amber-950/50 hover:bg-amber-800/60 border border-amber-500/50 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95" title="Cuerno de Guerra [Q]: +40% Velocidad y Daño a tropas por 10s (Costo: 25 Maná)">
+        <i class="fa-solid fa-bullhorn text-amber-400"></i>
+        <span class="hidden md:inline">Cuerno de Guerra</span>
+        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 px-1 rounded">25 MP [Q]</span>
+      </button>
+
+      <!-- Spell 2: Heal Rain -->
+      <button id="spell-heal" class="relative group px-2.5 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-800/60 border border-emerald-500/50 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95" title="Lluvia Curativa [W]: Restaura 300 HP a aliados y repara la Aldea (Costo: 40 Maná)">
+        <i class="fa-solid fa-hand-holding-medical text-emerald-400"></i>
+        <span class="hidden md:inline">Lluvia Sagrada</span>
+        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 px-1 rounded">40 MP [W]</span>
+      </button>
+
+      <!-- Spell 3: Meteor Strike -->
+      <button id="spell-meteor" class="relative group px-2.5 py-1.5 rounded-lg bg-red-950/50 hover:bg-red-800/60 border border-red-500/50 text-red-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95" title="Meteoro Devastador [E]: Cae sobre el cursor causando 450 de daño en área (Costo: 60 Maná)">
+        <i class="fa-solid fa-meteor text-red-400"></i>
+        <span class="hidden md:inline">Lluvia de Fuego</span>
+        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 px-1 rounded">60 MP [E]</span>
+      </button>
+
+      <!-- Spell 4: Fortify Shield -->
+      <button id="spell-fortify" class="relative group px-2.5 py-1.5 rounded-lg bg-blue-950/50 hover:bg-blue-800/60 border border-blue-500/50 text-blue-300 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95" title="Escudo Sagrado [R]: Barrera que protege la Aldea del 75% del daño por 12s (Costo: 50 Maná)">
+        <i class="fa-solid fa-shield-cat text-blue-400"></i>
+        <span class="hidden md:inline">Fortificación</span>
+        <span class="text-[10px] text-cyan-300 bg-cyan-950/80 px-1 rounded">50 MP [R]</span>
+      </button>
+    </div>
+
+    <!-- Unit Recruitment & Structure Placement Bar -->
+    <div class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-2 overflow-x-auto max-w-full">
+      
+      <!-- Recruit: Infantería (Swordsman) -->
+      <button id="recruit-infantry" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Espadachín [1]: Tanque cuerpo a cuerpo, alto blindaje y bloqueo">
+        <div class="w-9 h-9 rounded-lg bg-blue-600/30 border border-blue-400/50 flex items-center justify-center text-blue-400 text-base mb-1 group-hover:bg-blue-600/50">
+          <i class="fa-solid fa-shield"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Infantería</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <i class="fa-solid fa-coins text-[8px]"></i>
+          <span>50g</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[1]</span>
+      </button>
+
+      <!-- Recruit: Arquero (Archer) -->
+      <button id="recruit-archer" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Arquero [2]: Daño a distancia veloz, perfecto contra enemigos ligeros y voladores">
+        <div class="w-9 h-9 rounded-lg bg-emerald-600/30 border border-emerald-400/50 flex items-center justify-center text-emerald-400 text-base mb-1 group-hover:bg-emerald-600/50">
+          <i class="fa-solid fa-bullseye"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Arquero</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <i class="fa-solid fa-coins text-[8px]"></i>
+          <span>65g</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[2]</span>
+      </button>
+
+      <!-- Recruit: Caballero (Knight) -->
+      <button id="recruit-knight" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Caballero [3]: Caballería pesada rápida con devastador impacto de carga">
+        <div class="w-9 h-9 rounded-lg bg-amber-600/30 border border-amber-400/50 flex items-center justify-center text-amber-400 text-base mb-1 group-hover:bg-amber-600/50">
+          <i class="fa-solid fa-horse-head"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Caballero</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <i class="fa-solid fa-coins text-[8px]"></i>
+          <span>110g</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[3]</span>
+      </button>
+
+      <!-- Recruit: Mago (Pyromancer) -->
+      <button id="recruit-mage" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Piromante [4]: Lanza esferas de fuego que causan daño masivo en área (AoE)">
+        <div class="w-9 h-9 rounded-lg bg-purple-600/30 border border-purple-400/50 flex items-center justify-center text-purple-400 text-base mb-1 group-hover:bg-purple-600/50">
+          <i class="fa-solid fa-hat-wizard"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Mago</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <i class="fa-solid fa-coins text-[8px]"></i>
+          <span>130g</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[4]</span>
+      </button>
+
+      <!-- Recruit: Clérigo (Healer) -->
+      <button id="recruit-healer" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Clérigo [5]: Cura periódicamente a los aliados cercanos heridos">
+        <div class="w-9 h-9 rounded-lg bg-teal-600/30 border border-teal-400/50 flex items-center justify-center text-teal-400 text-base mb-1 group-hover:bg-teal-600/50">
+          <i class="fa-solid fa-cross"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Clérigo</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <i class="fa-solid fa-coins text-[8px]"></i>
+          <span>90g</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[5]</span>
+      </button>
+
+      <div class="h-10 w-[1px] bg-slate-700/60 mx-0.5"></div>
+
+      <!-- Build: Torre Balista (Watchtower) -->
+      <button id="build-tower" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Torre Balista [6]: Estructura defensiva que dispara flechas pesadas automáticamente">
+        <div class="w-9 h-9 rounded-lg bg-amber-800/30 border border-amber-600/50 flex items-center justify-center text-amber-400 text-base mb-1 group-hover:bg-amber-800/50">
+          <i class="fa-solid fa-tower-observation"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Torre</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <span>75g / 40w</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[6]</span>
+      </button>
+
+      <!-- Build: Barricada de Púas (Spike Barricade) -->
+      <button id="build-barricade" class="glass-card flex flex-col items-center justify-center p-2 rounded-xl min-w-[72px] md:min-w-[85px] transition group hover:scale-105 active:scale-95 relative" title="Barricada de Púas [7]: Bloquea a los atacantes e inflige daño a quienes la golpeen">
+        <div class="w-9 h-9 rounded-lg bg-amber-950/40 border border-amber-700/50 flex items-center justify-center text-amber-500 text-base mb-1 group-hover:bg-amber-950/60">
+          <i class="fa-solid fa-road-barrier"></i>
+        </div>
+        <span class="text-[11px] font-bold text-slate-200">Barricada</span>
+        <div class="flex items-center gap-1 text-[10px] text-amber-300 mt-0.5">
+          <span>35g / 25w</span>
+        </div>
+        <span class="absolute top-1 right-1 text-[9px] font-mono text-slate-400 bg-slate-900/90 px-1 rounded">[7]</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= SELECTION CARD & SQUAD CONTROLS (BOTTOM-RIGHT) ================= -->
+  <div id="selection-panel" class="absolute bottom-3 right-3 z-20 glass-panel p-3 rounded-2xl w-64 md:w-72 hidden transition-all duration-200">
+    <div class="flex items-center justify-between border-b border-slate-700/60 pb-2 mb-2">
+      <div class="flex items-center gap-2">
+        <div id="selection-icon-box" class="w-8 h-8 rounded-lg bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400">
+          <i id="selection-icon" class="fa-solid fa-users"></i>
+        </div>
+        <div>
+          <h4 id="selection-title" class="font-bold text-xs md:text-sm text-slate-100 leading-tight">Escuadrón Seleccionado</h4>
+          <span id="selection-subtitle" class="text-[10px] text-slate-400">3 Unidades</span>
+        </div>
+      </div>
+      <button id="btn-deselect" class="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-slate-800">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Health & Stats Overview -->
+    <div id="selection-stats-container" class="space-y-1.5 text-xs mb-2.5">
+      <div class="flex justify-between text-[11px] text-slate-300">
+        <span>Salud Total:</span>
+        <span id="selection-hp-text" class="font-bold text-emerald-400">650 / 650</span>
+      </div>
+      <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700">
+        <div id="selection-hp-bar" class="bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full w-full"></div>
+      </div>
+      <div id="selection-multi-badges" class="flex flex-wrap gap-1 pt-1 max-h-16 overflow-y-auto">
+        <!-- Badges inserted dynamically -->
+      </div>
+    </div>
+
+    <!-- Tactical Stance & Formation Commands -->
+    <div class="grid grid-cols-4 gap-1 pt-1 border-t border-slate-700/60">
+      <button id="btn-cmd-attack" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-900/60 border border-slate-700 hover:border-red-500 text-[10px] font-bold text-slate-200 flex flex-col items-center transition" title="Atacar y Moverse (A)">
+        <i class="fa-solid fa-swords text-red-400 mb-0.5"></i>
+        <span>Atacar [A]</span>
+      </button>
+      <button id="btn-cmd-stop" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-amber-900/60 border border-slate-700 hover:border-amber-500 text-[10px] font-bold text-slate-200 flex flex-col items-center transition" title="Detener / Mantener Posición (S)">
+        <i class="fa-solid fa-hand text-amber-400 mb-0.5"></i>
+        <span>Alto [S]</span>
+      </button>
+      <button id="btn-cmd-formation" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-indigo-900/60 border border-slate-700 hover:border-indigo-500 text-[10px] font-bold text-slate-200 flex flex-col items-center transition" title="Cambiar Formación (Línea / Cuña / Dispersa) [F]">
+        <i class="fa-solid fa-arrows-split-up-and-left text-indigo-400 mb-0.5"></i>
+        <span id="formation-label">Línea [F]</span>
+      </button>
+      <button id="btn-cmd-focus" class="p-1.5 rounded-lg bg-slate-800/80 hover:bg-cyan-900/60 border border-slate-700 hover:border-cyan-500 text-[10px] font-bold text-slate-200 flex flex-col items-center transition" title="Seleccionar Todas las Tropas (Ctrl+A / Doble Clic)">
+        <i class="fa-solid fa-bullseye-arrow text-cyan-400 mb-0.5"></i>
+        <span>Todos</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= TECH TREE / UPGRADES MODAL ================= -->
+  <div id="modal-tech" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 border-amber-500/60 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-amber-500/30 pb-4 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-amber-600/30 border border-amber-500 flex items-center justify-center text-amber-400 text-2xl">
+            <i class="fa-solid fa-anvil"></i>
+          </div>
+          <div>
+            <h2 class="font-medieval text-xl md:text-2xl font-black text-amber-300">Herrería & Academia Militar</h2>
+            <p class="text-xs text-slate-300">Investigá tecnologías para potenciar permanentemente a tus soldados y la aldea.</p>
+          </div>
+        </div>
+        <button id="btn-close-tech" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Upgrade Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+        
+        <!-- Upgrade 1: Forja de Acero (Melee Dmg) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-500/50 flex items-center justify-center text-blue-400 text-lg">
+              <i class="fa-solid fa-sword"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Forja de Acero</span>
+                <span id="tech-lvl-melee" class="text-[10px] bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+20% Daño de combate para Infantería y Caballeros</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-melee" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-melee">80g</span>
+          </button>
+        </div>
+
+        <!-- Upgrade 2: Armaduras Templadas (Unit HP) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-lg">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Armaduras Templadas</span>
+                <span id="tech-lvl-armor" class="text-[10px] bg-emerald-900/60 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+25% Vida Máxima y blindaje para todo el escuadrón</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-armor" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-armor">100g</span>
+          </button>
+        </div>
+
+        <!-- Upgrade 3: Flechas Incendiarias (Ranged dmg/range) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-600/30 border border-red-500/50 flex items-center justify-center text-red-400 text-lg">
+              <i class="fa-solid fa-fire-flame-curved"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Flechas de Fuego</span>
+                <span id="tech-lvl-ranged" class="text-[10px] bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded border border-red-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+20% Rango y quemadura prolongada para Arqueros</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-ranged" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-ranged">90g</span>
+          </button>
+        </div>
+
+        <!-- Upgrade 4: Murallas y Balistas (Village Defense) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-600/30 border border-amber-500/50 flex items-center justify-center text-amber-400 text-lg">
+              <i class="fa-solid fa-fort-awesome"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Fortificación de Aldea</span>
+                <span id="tech-lvl-village" class="text-[10px] bg-amber-900/60 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+500 HP a la Aldea e instala una Balista automática en el Ayuntamiento</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-village" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-village">120g</span>
+          </button>
+        </div>
+
+        <!-- Upgrade 5: Impuestos y Comercio (Economy) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-yellow-600/30 border border-yellow-500/50 flex items-center justify-center text-yellow-400 text-lg">
+              <i class="fa-solid fa-sack-dollar"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Rutas Comerciales</span>
+                <span id="tech-lvl-eco" class="text-[10px] bg-yellow-900/60 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+35% Ingreso de oro pasivo y recompensas por oleada</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-eco" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-eco">75g</span>
+          </button>
+        </div>
+
+        <!-- Upgrade 6: Canalización Arcana (Mana Reg / Spell CD) -->
+        <div class="glass-card p-3.5 rounded-2xl flex items-center justify-between border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-600/30 border border-cyan-500/50 flex items-center justify-center text-cyan-400 text-lg">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                <span>Canalización Arcana</span>
+                <span id="tech-lvl-mana" class="text-[10px] bg-cyan-900/60 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/40">Nv. 0/3</span>
+              </div>
+              <p class="text-[11px] text-slate-400">+50% Regeneración de Maná y +50 Capacidad Máxima</p>
+            </div>
+          </div>
+          <button id="buy-upgrade-mana" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 shadow transition flex items-center gap-1">
+            <i class="fa-solid fa-coins text-[10px]"></i>
+            <span id="tech-cost-mana">110g</span>
+          </button>
+        </div>
+
+      </div>
+
+      <div class="flex justify-end">
+        <button id="btn-close-tech-2" class="px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition">
+          Regresar a la Batalla
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TUTORIAL / HELP MODAL ================= -->
+  <div id="modal-help" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-xl rounded-3xl p-6 border-amber-500/60 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-amber-500/30 pb-3 mb-4">
+        <h3 class="font-medieval text-xl font-black text-amber-300 flex items-center gap-2">
+          <i class="fa-solid fa-book-bookmark text-amber-400"></i> Manual del Comandante
+        </h3>
+        <button id="btn-close-help" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs md:text-sm text-slate-300">
+        <div>
+          <h4 class="font-bold text-amber-400 uppercase tracking-wide text-xs mb-1.5"><i class="fa-solid fa-mouse-pointer mr-1"></i> Controles Básicos (RTS)</h4>
+          <ul class="list-disc pl-5 space-y-1 text-slate-300 text-xs">
+            <li><b class="text-white">Clic Izquierdo + Arrastrar:</b> Selección en caja (Marquee) de soldados.</li>
+            <li><b class="text-white">Clic Derecho en el suelo:</b> Mover a las unidades seleccionadas con formación táctica.</li>
+            <li><b class="text-white">Clic Derecho en un enemigo:</b> Atacar / Enfocar fuego a ese objetivo prioritario.</li>
+            <li><b class="text-white">WASD o Flechas / Arrastre con rueda:</b> Desplazar la cámara por el mapa.</li>
+            <li><b class="text-white">Rueda del ratón:</b> Acercar / Alejar zoom de la cámara.</li>
+            <li><b class="text-white">Espacio:</b> Centrar la cámara de inmediato en la Aldea central.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-amber-400 uppercase tracking-wide text-xs mb-1.5"><i class="fa-solid fa-keyboard mr-1"></i> Atajos de Teclado</h4>
+          <div class="grid grid-cols-2 gap-2 text-[11px]">
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">1 - 5:</b> Reclutar soldados</div>
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">6 - 7:</b> Construir Torres / Muros</div>
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">Q, W, E, R:</b> Hechizos de Comandante</div>
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">A / S / F:</b> Atacar / Parar / Formación</div>
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">U:</b> Abrir Forja y Mejoras</div>
+            <div class="glass-card p-2 rounded-lg"><b class="text-amber-300">M:</b> Activar / Desactivar Música</div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-amber-400 uppercase tracking-wide text-xs mb-1.5"><i class="fa-solid fa-lightbulb mr-1"></i> Consejos Tácticos</h4>
+          <p class="text-xs leading-relaxed text-slate-300">
+            Los <b>Infantería</b> absorben el daño al frente mientras los <b>Arqueros</b> y <b>Magos</b> eliminan a distancia. Mantené al <b>Clérigo</b> detrás para curar heridas. Usá la <b>Lluvia Sagrada (W)</b> para reparar la aldea entre oleadas si sufre daño.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button id="btn-close-help-2" class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 font-bold text-xs text-slate-950 transition">
+          ¡Entendido, a defender!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= GAME OVER / VICTORY MODAL ================= -->
+  <div id="modal-gameover" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-lg flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-lg rounded-3xl p-8 border-amber-500/80 shadow-2xl text-center">
+      <div id="end-icon-box" class="w-20 h-20 mx-auto rounded-3xl bg-red-600/30 border border-red-500 flex items-center justify-center text-red-400 text-4xl mb-4">
+        <i id="end-icon" class="fa-solid fa-skull-crossbones"></i>
+      </div>
+      
+      <h2 id="end-title" class="font-medieval text-3xl md:text-4xl font-black text-amber-300 mb-2">¡LA ALDEA HA CAÍDO!</h2>
+      <p id="end-subtitle" class="text-slate-300 text-sm mb-6">Las hordas enemigas han sobrepasado las defensas del reino.</p>
+
+      <!-- Stats Summary -->
+      <div class="grid grid-cols-3 gap-2 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 mb-6">
+        <div>
+          <div class="text-[11px] text-slate-400 font-bold">OLEADA</div>
+          <div id="end-stat-wave" class="text-xl font-medieval font-bold text-amber-400">7 / 10</div>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 font-bold">ENEMIGOS</div>
+          <div id="end-stat-kills" class="text-xl font-bold text-red-400">142</div>
+        </div>
+        <div>
+          <div class="text-[11px] text-slate-400 font-bold">PUNTUACIÓN</div>
+          <div id="end-stat-score" class="text-xl font-bold text-cyan-400">8,450</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center gap-3">
+        <button id="btn-restart-game" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-600/30 transition transform hover:scale-105 active:scale-95 flex items-center gap-2">
+          <i class="fa-solid fa-rotate-right"></i> Jugar de Nuevo
+        </button>
+        <button id="btn-endless-mode" class="px-5 py-3 rounded-2xl bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold text-sm uppercase tracking-wider transition hidden" title="Continuar en modo infinito">
+          Modo Infinito <i class="fa-solid fa-infinity ml-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SOUND ENGINE & MAIN GAME CODE SCRIPT ================= -->
+  <script>
+  /* ==========================================================================
+     DEFENSORES DEL REINO - 2.5D RTS STRATEGY GAME ENGINE
+     Self-contained Three.js / WebGL Video Game Architecture
+     ========================================================================== */
+
+  // --- AUDIO SYNTHESIS ENGINE (Web Audio API) ---
+  class SoundEngine {
+    constructor() {
+      this.ctx = null;
+      this.enabled = true;
+      this.musicGain = null;
+      this.sfxGain = null;
+      this.isMusicPlaying = false;
+      this.nextNoteTime = 0;
+      this.noteIndex = 0;
+      this.tempo = 118;
+      this.melody = [
+        110, 110, 130.81, 146.83, 164.81, 146.83, 130.81, 110,
+        98, 98, 110, 130.81, 146.83, 130.81, 110, 98
+      ];
+      this.bass = [
+        55, 55, 65.41, 73.42, 82.41, 73.42, 65.41, 55,
+        49, 49, 55, 65.41, 73.42, 65.41, 55, 49
+      ];
+    }
+
+    init() {
+      if (this.ctx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+        
+        this.sfxGain = this.ctx.createGain();
+        this.sfxGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        this.sfxGain.connect(this.ctx.destination);
+
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        this.musicGain.connect(this.ctx.destination);
+
+        this.startMusicLoop();
+      } catch (e) {
+        console.warn('Audio Context not available', e);
+      }
+    }
+
+    toggle() {
+      this.enabled = !this.enabled;
+      if (this.sfxGain && this.musicGain) {
+        const target = this.enabled ? 0.35 : 0;
+        this.sfxGain.gain.setValueAtTime(target, this.ctx.currentTime);
+        this.musicGain.gain.setValueAtTime(this.enabled ? 0.18 : 0, this.ctx.currentTime);
+      }
+      return this.enabled;
+    }
+
+    playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.3, pitchSlide = null) {
+      if (!this.enabled || !this.ctx) return;
+      try {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        if (pitchSlide) {
+          osc.frequency.exponentialRampToValueAtTime(pitchSlide, this.ctx.currentTime + duration);
+        }
+        g.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(g);
+        g.connect(this.sfxGain);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    playNoise(duration = 0.2, filterFreq = 1000) {
+      if (!this.enabled || !this.ctx) return;
+      try {
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = this.ctx.createBufferSource();
+        whiteNoise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = filterFreq;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxGain);
+
+        whiteNoise.start();
+      } catch (e) {}
+    }
+
+    // High level SFX
+    playSwordSwing() {
+      this.playTone(320, 'triangle', 0.12, 0.25, 120);
+      this.playNoise(0.08, 1400);
+    }
+
+    playBowShoot() {
+      this.playTone(600, 'sine', 0.1, 0.2, 280);
+      this.playNoise(0.06, 2000);
+    }
+
+    playArrowHit() {
+      this.playTone(180, 'triangle', 0.08, 0.2, 90);
+      this.playNoise(0.07, 800);
+    }
+
+    playMagicCast() {
+      this.playTone(350, 'sine', 0.35, 0.25, 800);
+      this.playTone(700, 'triangle', 0.3, 0.15, 1200);
+    }
+
+    playExplosion() {
+      this.playNoise(0.4, 400);
+      this.playTone(120, 'sawtooth', 0.35, 0.35, 30);
+    }
+
+    playHeal() {
+      this.playTone(440, 'sine', 0.4, 0.2, 880);
+      setTimeout(() => this.playTone(660, 'sine', 0.35, 0.2, 1100), 100);
+    }
+
+    playSelect() {
+      this.playTone(523.25, 'sine', 0.08, 0.15, 659.25);
+    }
+
+    playOrder() {
+      this.playTone(659.25, 'triangle', 0.1, 0.2, 880);
+    }
+
+    playRecruit() {
+      this.playTone(440, 'triangle', 0.1, 0.25);
+      setTimeout(() => this.playTone(554.37, 'triangle', 0.1, 0.25), 90);
+      setTimeout(() => this.playTone(659.25, 'triangle', 0.18, 0.3), 180);
+    }
+
+    playWarHorn() {
+      if (!this.enabled || !this.ctx) return;
+      this.playTone(220, 'sawtooth', 0.6, 0.4, 246.94);
+      setTimeout(() => this.playTone(329.63, 'sawtooth', 0.8, 0.45, 329.63), 300);
+    }
+
+    playBuild() {
+      this.playNoise(0.12, 1200);
+      this.playTone(200, 'square', 0.1, 0.2, 100);
+    }
+
+    playAlarm() {
+      this.playTone(880, 'sawtooth', 0.2, 0.3, 440);
+    }
+
+    playVictory() {
+      const notes = [392, 523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((f, idx) => {
+        setTimeout(() => this.playTone(f, 'triangle', 0.35, 0.35), idx * 140);
+      });
+    }
+
+    playDefeat() {
+      const notes = [440, 415.3, 392, 369.99, 329.63];
+      notes.forEach((f, idx) => {
+        setTimeout(() => this.playTone(f, 'sawtooth', 0.4, 0.35), idx * 160);
+      });
+    }
+
+    startMusicLoop() {
+      if (!this.ctx) return;
+      const schedule = () => {
+        if (!this.enabled) {
+          setTimeout(schedule, 200);
+          return;
+        }
+        const now = this.ctx.currentTime;
+        if (this.nextNoteTime < now + 0.1) {
+          const mFreq = this.melody[this.noteIndex % this.melody.length];
+          const bFreq = this.bass[this.noteIndex % this.bass.length];
+
+          // Melody arp
+          const osc1 = this.ctx.createOscillator();
+          const g1 = this.ctx.createGain();
+          osc1.type = 'triangle';
+          osc1.frequency.setValueAtTime(mFreq * 2, now);
+          g1.gain.setValueAtTime(0.08, now);
+          g1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+          osc1.connect(g1);
+          g1.connect(this.musicGain);
+          osc1.start(now);
+          osc1.stop(now + 0.36);
+
+          // Sub bass / war pulse
+          const osc2 = this.ctx.createOscillator();
+          const g2 = this.ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(bFreq, now);
+          g2.gain.setValueAtTime(0.12, now);
+          g2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc2.connect(g2);
+          g2.connect(this.musicGain);
+          osc2.start(now);
+          osc2.stop(now + 0.46);
+
+          // Subtle war percussion on quarter notes
+          if (this.noteIndex % 4 === 0) {
+            this.playDrum(now);
+          }
+
+          this.noteIndex++;
+          this.nextNoteTime = now + (60 / this.tempo) * 0.5;
+        }
+        setTimeout(schedule, 60);
+      };
+      this.nextNoteTime = this.ctx.currentTime + 0.1;
+      schedule();
+    }
+
+    playDrum(time) {
+      if (!this.enabled || !this.ctx) return;
+      try {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(100, time);
+        osc.frequency.exponentialRampToValueAtTime(30, time + 0.18);
+        g.gain.setValueAtTime(0.2, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+        osc.connect(g);
+        g.connect(this.musicGain);
+        osc.start(time);
+        osc.stop(time + 0.19);
+      } catch (e) {}
+    }
+  }
+
+  const audio = new SoundEngine();
+
+  /* ================= GAME CONFIGURATION & STATS ================= */
+  const CONFIG = {
+    MAP_SIZE: 140,
+    VILLAGE_POS: new THREE.Vector3(0, 0, 0),
+    VILLAGE_MAX_HP: 1500,
+    SPAWN_DIST: 58,
+    UNITS: {
+      infantry: {
+        name: 'Infantería',
+        type: 'infantry',
+        costGold: 50,
+        costWood: 0,
+        hp: 220,
+        damage: 26,
+        attackRange: 2.2,
+        attackSpeed: 1.1,
+        speed: 4.8,
+        color: 0x3b82f6,
+        armor: 5,
+        icon: 'fa-shield',
+        desc: 'Tanque cuerpo a cuerpo'
+      },
+      archer: {
+        name: 'Arquero',
+        type: 'archer',
+        costGold: 65,
+        costWood: 0,
+        hp: 130,
+        damage: 22,
+        attackRange: 13.0,
+        attackSpeed: 0.95,
+        speed: 5.2,
+        color: 0x10b981,
+        armor: 1,
+        isRanged: true,
+        projectileSpeed: 24,
+        icon: 'fa-bullseye',
+        desc: 'Daño rápido a distancia'
+      },
+      knight: {
+        name: 'Caballero',
+        type: 'knight',
+        costGold: 110,
+        costWood: 0,
+        hp: 360,
+        damage: 48,
+        attackRange: 2.5,
+        attackSpeed: 1.3,
+        speed: 7.2,
+        color: 0xf59e0b,
+        armor: 8,
+        icon: 'fa-horse-head',
+        desc: 'Caballería de choque veloz'
+      },
+      mage: {
+        name: 'Piromante',
+        type: 'mage',
+        costGold: 130,
+        costWood: 0,
+        hp: 110,
+        damage: 55,
+        attackRange: 11.5,
+        attackSpeed: 1.7,
+        speed: 4.2,
+        color: 0xa855f7,
+        armor: 0,
+        isRanged: true,
+        isAoE: true,
+        aoeRadius: 4.5,
+        projectileSpeed: 18,
+        icon: 'fa-hat-wizard',
+        desc: 'Daño mágico explosivo en área'
+      },
+      healer: {
+        name: 'Clérigo',
+        type: 'healer',
+        costGold: 90,
+        costWood: 0,
+        hp: 150,
+        damage: 10,
+        healPower: 35,
+        healRange: 9.0,
+        attackRange: 2.0,
+        attackSpeed: 2.0,
+        speed: 4.6,
+        color: 0x14b8a6,
+        armor: 2,
+        isHealer: true,
+        icon: 'fa-cross',
+        desc: 'Restaura vida a sus compañeros'
+      }
+    },
+    STRUCTURES: {
+      tower: {
+        name: 'Torre Balista',
+        costGold: 75,
+        costWood: 40,
+        hp: 450,
+        damage: 34,
+        attackRange: 15.0,
+        attackSpeed: 1.2,
+        color: 0x78350f
+      },
+      barricade: {
+        name: 'Barricada',
+        costGold: 35,
+        costWood: 25,
+        hp: 600,
+        reflectDamage: 12,
+        color: 0x451a03
+      }
+    },
+    ENEMIES: {
+      goblin: {
+        name: 'Goblin Pícaro',
+        hp: 90,
+        damage: 14,
+        speed: 5.6,
+        attackRange: 1.8,
+        attackSpeed: 0.9,
+        bounty: 14,
+        color: 0x22c55e,
+        scale: 0.8
+      },
+      orc: {
+        name: 'Orco Guerrero',
+        hp: 240,
+        damage: 32,
+        speed: 3.8,
+        attackRange: 2.2,
+        attackSpeed: 1.3,
+        bounty: 28,
+        color: 0xb91c1c,
+        scale: 1.2
+      },
+      goblin_archer: {
+        name: 'Goblin Ballestero',
+        hp: 100,
+        damage: 18,
+        speed: 4.8,
+        attackRange: 12.0,
+        attackSpeed: 1.2,
+        isRanged: true,
+        bounty: 22,
+        color: 0x84cc16,
+        scale: 0.85
+      },
+      shaman: {
+        name: 'Chamán Esqueleto',
+        hp: 200,
+        damage: 28,
+        speed: 3.6,
+        attackRange: 10.5,
+        attackSpeed: 2.0,
+        isRanged: true,
+        canSummon: true,
+        bounty: 45,
+        color: 0x9333ea,
+        scale: 1.1
+      },
+      troll: {
+        name: 'Trol de Asedio',
+        hp: 650,
+        damage: 75,
+        speed: 2.8,
+        attackRange: 3.2,
+        attackSpeed: 2.2,
+        bounty: 80,
+        color: 0x475569,
+        scale: 1.8,
+        isBoss: false
+      },
+      wyvern: {
+        name: 'Wyvern Volador',
+        hp: 320,
+        damage: 42,
+        speed: 6.2,
+        attackRange: 8.5,
+        attackSpeed: 1.5,
+        isFlying: true,
+        isRanged: true,
+        bounty: 65,
+        color: 0xd97706,
+        scale: 1.3
+      },
+      warlord: {
+        name: 'Señor del Abismo',
+        hp: 2200,
+        damage: 110,
+        speed: 3.2,
+        attackRange: 3.8,
+        attackSpeed: 1.8,
+        bounty: 300,
+        color: 0x991b1b,
+        scale: 2.4,
+        isBoss: true
+      }
+    }
+  };
+
+  /* ================= 3D PARTICLES ENGINE ================= */
+  class ParticleManager {
+    constructor(scene) {
+      this.scene = scene;
+      this.particles = [];
+      
+      // Geometry caches
+      this.sparkGeo = new THREE.SphereGeometry(0.12, 4, 4);
+      this.bloodGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+      this.ringGeo = new THREE.RingGeometry(0.1, 0.6, 16);
+      this.ringGeo.rotateX(-Math.PI / 2);
+    }
+
+    emit(pos, count = 8, color = 0xffaa00, speed = 4, lifetime = 0.5, size = 0.15) {
+      for (let i = 0; i < count; i++) {
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+        const mesh = new THREE.Mesh(this.sparkGeo, mat);
+        mesh.scale.set(size, size, size);
+        mesh.position.copy(pos);
+        mesh.position.x += (Math.random() - 0.5) * 0.4;
+        mesh.position.y += Math.random() * 0.5;
+        mesh.position.z += (Math.random() - 0.5) * 0.4;
+
+        const vel = new THREE.Vector3(
+          (Math.random() - 0.5) * speed,
+          Math.random() * speed * 0.8 + 1,
+          (Math.random() - 0.5) * speed
+        );
+
+        this.scene.add(mesh);
+        this.particles.push({
+          mesh,
+          vel,
+          gravity: 9.8,
+          lifetime,
+          maxLife: lifetime
+        });
+      }
+    }
+
+    emitBlood(pos, count = 6) {
+      this.emit(pos, count, 0x991b1b, 2.5, 0.4, 0.12);
+    }
+
+    emitSparks(pos, count = 10) {
+      this.emit(pos, count, 0xfef08a, 5.0, 0.35, 0.1);
+    }
+
+    emitMagic(pos, color = 0xa855f7, count = 14) {
+      this.emit(pos, count, color, 3.5, 0.7, 0.18);
+    }
+
+    emitShockwave(pos, color = 0x38bdf8, maxRadius = 3.5) {
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const mesh = new THREE.Mesh(this.ringGeo, mat);
+      mesh.position.copy(pos);
+      mesh.position.y = 0.1;
+      this.scene.add(mesh);
+
+      this.particles.push({
+        mesh,
+        isRing: true,
+        scale: 0.2,
+        maxRadius,
+        lifetime: 0.45,
+        maxLife: 0.45
+      });
+    }
+
+    update(dt) {
+      for (let i = this.particles.length - 1; i >= 0; i--) {
+        const p = this.particles[i];
+        p.lifetime -= dt;
+
+        if (p.lifetime <= 0) {
+          this.scene.remove(p.mesh);
+          p.mesh.geometry.dispose();
+          p.mesh.material.dispose();
+          this.particles.splice(i, 1);
+          continue;
+        }
+
+        const alpha = p.lifetime / p.maxLife;
+        p.mesh.material.opacity = alpha;
+
+        if (p.isRing) {
+          p.scale += (dt / p.maxLife) * p.maxRadius * 3;
+          p.mesh.scale.set(p.scale, p.scale, p.scale);
+        } else {
+          p.mesh.position.addScaledVector(p.vel, dt);
+          p.vel.y -= p.gravity * dt;
+          if (p.mesh.position.y < 0.05) {
+            p.mesh.position.y = 0.05;
+            p.vel.x *= 0.5;
+            p.vel.z *= 0.5;
+            p.vel.y = 0;
+          }
+        }
+      }
+    }
+  }
+
+  /* ================= 3D ENTITY MODEL FACTORY ================= */
+  class ModelFactory {
+    static createUnitMesh(type, colorHex, scale = 1.0, isEnemy = false) {
+      const group = new THREE.Group();
+
+      // Materials
+      const bodyMat = new THREE.MeshLambertMaterial({ color: colorHex });
+      const skinMat = new THREE.MeshLambertMaterial({ color: isEnemy ? (colorHex === 0xb91c1c ? 0x7f1d1d : 0x4ade80) : 0xfbcfe8 });
+      const armorMat = new THREE.MeshStandardMaterial({ color: isEnemy ? 0x334155 : 0x94a3b8, roughness: 0.4, metalness: 0.6 });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.3 });
+
+      // Torso / Body
+      const bodyGeo = new THREE.BoxGeometry(0.6, 0.75, 0.4);
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = 0.75;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      group.add(body);
+
+      // Armor Chestplate / Trim
+      if (!isEnemy || type === 'orc' || type === 'warlord') {
+        const armorGeo = new THREE.BoxGeometry(0.66, 0.45, 0.46);
+        const armor = new THREE.Mesh(armorGeo, armorMat);
+        armor.position.y = 0.85;
+        group.add(armor);
+      }
+
+      // Head
+      const headGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+      const head = new THREE.Mesh(headGeo, skinMat);
+      head.position.y = 1.35;
+      head.castShadow = true;
+      group.add(head);
+
+      // Helmet / Hair / Cap
+      if (type === 'infantry' || type === 'knight' || type === 'warlord') {
+        const helmGeo = new THREE.ConeGeometry(0.3, 0.35, 4);
+        const helm = new THREE.Mesh(helmGeo, goldMat);
+        helm.position.y = 1.68;
+        helm.rotation.y = Math.PI / 4;
+        group.add(helm);
+      } else if (type === 'mage' || type === 'shaman') {
+        const hatGeo = new THREE.ConeGeometry(0.4, 0.7, 8);
+        const hatMat = new THREE.MeshLambertMaterial({ color: isEnemy ? 0x581c87 : 0x6b21a8 });
+        const hat = new THREE.Mesh(hatGeo, hatMat);
+        hat.position.y = 1.85;
+        group.add(hat);
+      } else if (type === 'archer') {
+        const hoodGeo = new THREE.BoxGeometry(0.46, 0.25, 0.46);
+        const hood = new THREE.Mesh(hoodGeo, new THREE.MeshLambertMaterial({ color: 0x065f46 }));
+        hood.position.y = 1.48;
+        group.add(hood);
+      }
+
+      // Arms & Weapon Attachments
+      const rightArmGeo = new THREE.BoxGeometry(0.2, 0.6, 0.2);
+      const rightArm = new THREE.Mesh(rightArmGeo, bodyMat);
+      rightArm.position.set(0.42, 0.75, 0);
+      group.add(rightArm);
+
+      const leftArm = rightArm.clone();
+      leftArm.position.set(-0.42, 0.75, 0);
+      group.add(leftArm);
+
+      // Weapon
+      if (type === 'infantry') {
+        // Sword in right hand
+        const bladeGeo = new THREE.BoxGeometry(0.08, 0.9, 0.15);
+        const blade = new THREE.Mesh(bladeGeo, armorMat);
+        blade.position.set(0.45, 0.8, 0.35);
+        blade.rotation.x = Math.PI / 4;
+        group.add(blade);
+
+        // Shield on left arm
+        const shieldGeo = new THREE.BoxGeometry(0.1, 0.7, 0.5);
+        const shield = new THREE.Mesh(shieldGeo, goldMat);
+        shield.position.set(-0.48, 0.75, 0.15);
+        group.add(shield);
+      } else if (type === 'archer' || type === 'goblin_archer') {
+        // Bow in left hand
+        const bowGeo = new THREE.TorusGeometry(0.35, 0.04, 6, 12, Math.PI);
+        const bow = new THREE.Mesh(bowGeo, woodMat);
+        bow.position.set(-0.4, 0.75, 0.3);
+        bow.rotation.y = Math.PI / 2;
+        group.add(bow);
+      } else if (type === 'knight') {
+        // Lance & Horse mount
+        const horseGeo = new THREE.BoxGeometry(0.9, 0.8, 1.6);
+        const horseMat = new THREE.MeshLambertMaterial({ color: 0x522e18 });
+        const horse = new THREE.Mesh(horseGeo, horseMat);
+        horse.position.y = 0.5;
+        horse.castShadow = true;
+        group.add(horse);
+
+        const horseHeadGeo = new THREE.BoxGeometry(0.45, 0.6, 0.6);
+        const horseHead = new THREE.Mesh(horseHeadGeo, horseMat);
+        horseHead.position.set(0, 0.95, 0.75);
+        group.add(horseHead);
+
+        // Raise rider
+        body.position.y = 1.1;
+        head.position.y = 1.7;
+        rightArm.position.y = 1.1;
+        leftArm.position.y = 1.1;
+
+        const lanceGeo = new THREE.CylinderGeometry(0.04, 0.08, 1.8, 6);
+        const lance = new THREE.Mesh(lanceGeo, armorMat);
+        lance.position.set(0.55, 1.1, 0.6);
+        lance.rotation.x = Math.PI / 2.8;
+        group.add(lance);
+      } else if (type === 'mage' || type === 'shaman') {
+        // Wizard Staff with glowing orb
+        const staffGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.4, 6);
+        const staff = new THREE.Mesh(staffGeo, woodMat);
+        staff.position.set(0.45, 0.8, 0.2);
+        group.add(staff);
+
+        const orbGeo = new THREE.SphereGeometry(0.16, 8, 8);
+        const orbMat = new THREE.MeshBasicMaterial({ color: isEnemy ? 0xd946ef : 0x38bdf8 });
+        const orb = new THREE.Mesh(orbGeo, orbMat);
+        orb.position.set(0.45, 1.5, 0.2);
+        group.add(orb);
+      } else if (type === 'healer') {
+        // Holy Scepter
+        const rodGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6);
+        const rod = new THREE.Mesh(rodGeo, goldMat);
+        rod.position.set(0.45, 0.8, 0.2);
+        group.add(rod);
+
+        const crossGeo = new THREE.BoxGeometry(0.3, 0.3, 0.06);
+        const cross = new THREE.Mesh(crossGeo, goldMat);
+        cross.position.set(0.45, 1.4, 0.2);
+        group.add(cross);
+      } else if (type === 'orc' || type === 'troll' || type === 'warlord') {
+        // Spiked Club / Great Axe
+        const axeHandle = new THREE.CylinderGeometry(0.06, 0.06, 1.4, 6);
+        const handle = new THREE.Mesh(axeHandle, woodMat);
+        handle.position.set(0.55, 0.8, 0.2);
+        group.add(handle);
+
+        const axeHead = new THREE.BoxGeometry(0.5, 0.4, 0.12);
+        const axe = new THREE.Mesh(axeHead, armorMat);
+        axe.position.set(0.55, 1.4, 0.2);
+        group.add(axe);
+      } else if (type === 'wyvern') {
+        // Dragon / Wyvern Wings
+        const wingGeo = new THREE.BoxGeometry(1.6, 0.06, 0.8);
+        const wingMat = new THREE.MeshLambertMaterial({ color: 0x9a3412 });
+        const leftWing = new THREE.Mesh(wingGeo, wingMat);
+        leftWing.position.set(-1.0, 1.2, 0);
+        leftWing.rotation.z = -0.2;
+        group.add(leftWing);
+
+        const rightWing = leftWing.clone();
+        rightWing.position.set(1.0, 1.2, 0);
+        rightWing.rotation.z = 0.2;
+        group.add(rightWing);
+
+        body.position.y = 1.4;
+        head.position.set(0, 1.5, 0.6);
+      }
+
+      // Legs / Feet
+      const legGeo = new THREE.BoxGeometry(0.22, 0.5, 0.25);
+      const leftLeg = new THREE.Mesh(legGeo, armorMat);
+      leftLeg.position.set(-0.18, 0.25, 0);
+      group.add(leftLeg);
+
+      const rightLeg = leftLeg.clone();
+      rightLeg.position.set(0.18, 0.25, 0);
+      group.add(rightLeg);
+
+      // Selection / Target Ring Mesh (Child at bottom)
+      const selRingGeo = new THREE.RingGeometry(0.65 * scale, 0.8 * scale, 24);
+      selRingGeo.rotateX(-Math.PI / 2);
+      const selRingMat = new THREE.MeshBasicMaterial({
+        color: isEnemy ? 0xef4444 : 0x22c55e,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0
+      });
+      const selRing = new THREE.Mesh(selRingGeo, selRingMat);
+      selRing.position.y = 0.04;
+      selRing.name = 'selectionRing';
+      group.add(selRing);
+
+      group.scale.set(scale, scale, scale);
+      return { group, rightArm, leftArm, leftLeg, rightLeg, selRing };
+    }
+
+    static createVillageKeep() {
+      const group = new THREE.Group();
+
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.5 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 });
+
+      // Main Keep Base
+      const baseGeo = new THREE.BoxGeometry(6.0, 4.0, 6.0);
+      const base = new THREE.Mesh(baseGeo, stoneMat);
+      base.position.y = 2.0;
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
+
+      // Roof
+      const roofGeo = new THREE.ConeGeometry(5.0, 3.5, 4);
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = 5.75;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      group.add(roof);
+
+      // 4 Corner Towers
+      const towerOffsets = [[-3, -3], [3, -3], [-3, 3], [3, 3]];
+      towerOffsets.forEach(([tx, tz]) => {
+        const tGeo = new THREE.CylinderGeometry(1.0, 1.1, 5.5, 8);
+        const tMesh = new THREE.Mesh(tGeo, stoneMat);
+        tMesh.position.set(tx, 2.75, tz);
+        tMesh.castShadow = true;
+        group.add(tMesh);
+
+        const tRoofGeo = new THREE.ConeGeometry(1.3, 2.0, 8);
+        const tRoof = new THREE.Mesh(tRoofGeo, roofMat);
+        tRoof.position.set(tx, 6.5, tz);
+        tRoof.castShadow = true;
+        group.add(tRoof);
+      });
+
+      // Wooden Entrance Door
+      const doorGeo = new THREE.BoxGeometry(1.8, 2.2, 0.4);
+      const door = new THREE.Mesh(doorGeo, woodMat);
+      door.position.set(0, 1.1, 3.05);
+      group.add(door);
+
+      // Flag on Top
+      const poleGeo = new THREE.CylinderGeometry(0.06, 0.06, 3.0, 6);
+      const pole = new THREE.Mesh(poleGeo, woodMat);
+      pole.position.set(0, 8.5, 0);
+      group.add(pole);
+
+      const flagGeo = new THREE.BoxGeometry(1.2, 0.7, 0.05);
+      const flag = new THREE.Mesh(flagGeo, goldMat);
+      flag.position.set(0.6, 9.4, 0);
+      group.add(flag);
+
+      // Auto-Ballista on Top (Unlocked via upgrade)
+      const ballistaGroup = new THREE.Group();
+      ballistaGroup.name = 'keepBallista';
+      ballistaGroup.visible = false;
+      const bBase = new THREE.BoxGeometry(1.2, 0.4, 1.2);
+      const bMesh = new THREE.Mesh(bBase, woodMat);
+      bMesh.position.set(0, 7.6, 0);
+      ballistaGroup.add(bMesh);
+      group.add(ballistaGroup);
+
+      return group;
+    }
+
+    static createWatchTower() {
+      const group = new THREE.Group();
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.5 });
+
+      const towerGeo = new THREE.CylinderGeometry(1.2, 1.5, 5.0, 8);
+      const tower = new THREE.Mesh(towerGeo, stoneMat);
+      tower.position.y = 2.5;
+      tower.castShadow = true;
+      tower.receiveShadow = true;
+      group.add(tower);
+
+      const platGeo = new THREE.CylinderGeometry(1.9, 1.9, 0.4, 8);
+      const plat = new THREE.Mesh(platGeo, woodMat);
+      plat.position.y = 5.2;
+      group.add(plat);
+
+      const roofGeo = new THREE.ConeGeometry(2.1, 2.2, 8);
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = 7.0;
+      roof.castShadow = true;
+      group.add(roof);
+
+      return group;
+    }
+
+    static createBarricade() {
+      const group = new THREE.Group();
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x451a03 });
+      const spikeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7 });
+
+      for (let i = -1.2; i <= 1.2; i += 0.6) {
+        const logGeo = new THREE.CylinderGeometry(0.14, 0.18, 1.6, 6);
+        const log = new THREE.Mesh(logGeo, woodMat);
+        log.position.set(i, 0.8, (Math.random() - 0.5) * 0.2);
+        log.rotation.z = (Math.random() - 0.5) * 0.3;
+        log.rotation.x = (Math.random() - 0.5) * 0.3;
+        log.castShadow = true;
+        group.add(log);
+
+        const spikeGeo = new THREE.ConeGeometry(0.1, 0.5, 5);
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.position.set(i, 1.6, 0.3);
+        spike.rotation.x = Math.PI / 3;
+        group.add(spike);
+      }
+      return group;
+    }
+
+    static createHouse() {
+      const group = new THREE.Group();
+      const plasterMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.5 });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+
+      const baseGeo = new THREE.BoxGeometry(3.2, 2.2, 2.8);
+      const base = new THREE.Mesh(baseGeo, plasterMat);
+      base.position.y = 1.1;
+      base.castShadow = true;
+      group.add(base);
+
+      const roofGeo = new THREE.ConeGeometry(2.6, 1.8, 4);
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = 3.1;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      group.add(roof);
+
+      const chimneyGeo = new THREE.BoxGeometry(0.5, 1.4, 0.5);
+      const chimney = new THREE.Mesh(chimneyGeo, new THREE.MeshLambertMaterial({ color: 0x64748b }));
+      chimney.position.set(0.9, 3.2, 0.6);
+      group.add(chimney);
+
+      return group;
+    }
+
+    static createWindmill() {
+      const group = new THREE.Group();
+      const stoneMat = new THREE.MeshLambertMaterial({ color: 0xcbd5e1 });
+      const roofMat = new THREE.MeshLambertMaterial({ color: 0x1e3a8a });
+      const woodMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+
+      const baseGeo = new THREE.CylinderGeometry(1.4, 2.0, 5.0, 8);
+      const base = new THREE.Mesh(baseGeo, stoneMat);
+      base.position.y = 2.5;
+      base.castShadow = true;
+      group.add(base);
+
+      const roofGeo = new THREE.ConeGeometry(1.6, 1.8, 8);
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = 5.9;
+      group.add(roof);
+
+      const bladesGroup = new THREE.Group();
+      bladesGroup.name = 'windmillBlades';
+      bladesGroup.position.set(0, 4.8, 1.45);
+
+      for (let i = 0; i < 4; i++) {
+        const bladeGeo = new THREE.BoxGeometry(0.3, 2.4, 0.04);
+        const bladeMat = new THREE.MeshLambertMaterial({ color: 0xfef08a });
+        const blade = new THREE.Mesh(bladeGeo, bladeMat);
+        blade.position.y = 1.2;
+        const armGroup = new THREE.Group();
+        armGroup.rotation.z = (Math.PI / 2) * i;
+        armGroup.add(blade);
+        bladesGroup.add(armGroup);
+      }
+      group.add(bladesGroup);
+      return group;
+    }
+
+    static createTree() {
+      const group = new THREE.Group();
+      const trunkMat = new THREE.MeshLambertMaterial({ color: 0x522e18 });
+      const leafMat = new THREE.MeshLambertMaterial({ color: Math.random() > 0.5 ? 0x166534 : 0x15803d });
+
+      const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 1.8, 6);
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 0.9;
+      trunk.castShadow = true;
+      group.add(trunk);
+
+      const foliageHeights = [2.0, 3.0, 3.8];
+      const foliageRadii = [1.4, 1.1, 0.7];
+      foliageHeights.forEach((h, idx) => {
+        const fGeo = new THREE.ConeGeometry(foliageRadii[idx], 1.6, 7);
+        const foliage = new THREE.Mesh(fGeo, leafMat);
+        foliage.position.y = h;
+        foliage.castShadow = true;
+        group.add(foliage);
+      });
+
+      const s = 0.8 + Math.random() * 0.5;
+      group.scale.set(s, s, s);
+      return group;
+    }
+
+    static createRock() {
+      const geo = new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.6, 1);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = 0.4;
+      mesh.rotation.set(Math.random(), Math.random(), Math.random());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+  }
+
+  /* ================= UNIT ENTITY CLASS ================= */
+  class Unit {
+    constructor(game, type, config, isEnemy = false, spawnPos = new THREE.Vector3()) {
+      this.game = game;
+      this.type = type;
+      this.isEnemy = isEnemy;
+      this.config = config;
+      this.name = config.name;
+
+      // Stats
+      this.maxHp = config.hp;
+      this.hp = this.maxHp;
+      this.damage = config.damage;
+      this.attackRange = config.attackRange;
+      this.attackSpeed = config.attackSpeed;
+      this.speed = config.speed;
+      this.armor = config.armor || 0;
+      this.isRanged = !!config.isRanged;
+      this.isAoE = !!config.isAoE;
+      this.aoeRadius = config.aoeRadius || 0;
+      this.isHealer = !!config.isHealer;
+      this.healPower = config.healPower || 0;
+      this.healRange = config.healRange || 0;
+      this.bounty = config.bounty || 10;
+      this.isBoss = !!config.isBoss;
+      this.isFlying = !!config.isFlying;
+
+      // Buffs & Upgrades Applied
+      this.buffTimer = 0;
+      this.buffMultiplier = 1.0;
+
+      // Movement & Combat State
+      this.pos = spawnPos.clone();
+      if (this.isFlying) this.pos.y = 3.5;
+      this.targetPos = this.pos.clone();
+      this.targetEnemy = null;
+      this.attackCooldown = 0;
+      this.isAttacking = false;
+      this.selected = false;
+      this.dead = false;
+      this.state = 'idle'; // 'idle', 'moving', 'attacking', 'dead'
+
+      // Animation variables
+      this.walkTime = Math.random() * 10;
+      this.attackAnimTime = 0;
+
+      // 3D Mesh
+      const scale = config.scale || 1.0;
+      const meshData = ModelFactory.createUnitMesh(type, config.color, scale, isEnemy);
+      this.mesh = meshData.group;
+      this.rightArm = meshData.rightArm;
+      this.leftArm = meshData.leftArm;
+      this.leftLeg = meshData.leftLeg;
+      this.rightLeg = meshData.rightLeg;
+      this.selRing = meshData.selRing;
+
+      // Overhead Mini Health Bar Mesh
+      this.hpBarGroup = new THREE.Group();
+      this.hpBarGroup.position.y = 2.2 * scale + (this.isFlying ? 0.8 : 0);
+      
+      const hpBgGeo = new THREE.PlaneGeometry(1.0 * scale, 0.14 * scale);
+      hpBgGeo.rotateX(-Math.PI / 4);
+      const hpBgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
+      const hpBg = new THREE.Mesh(hpBgGeo, hpBgMat);
+      this.hpBarGroup.add(hpBg);
+
+      const hpFgGeo = new THREE.PlaneGeometry(0.96 * scale, 0.10 * scale);
+      hpFgGeo.rotateX(-Math.PI / 4);
+      this.hpFgMat = new THREE.MeshBasicMaterial({ color: isEnemy ? 0xef4444 : 0x22c55e, side: THREE.DoubleSide });
+      this.hpFg = new THREE.Mesh(hpFgGeo, this.hpFgMat);
+      this.hpFg.position.z = 0.01;
+      this.hpBarGroup.add(this.hpFg);
+      
+      this.mesh.add(this.hpBarGroup);
+      this.mesh.position.copy(this.pos);
+      this.game.scene.add(this.mesh);
+    }
+
+    updateHpBar() {
+      if (!this.hpFg) return;
+      const pct = Math.max(0, Math.min(1, this.hp / this.maxHp));
+      this.hpFg.scale.x = pct;
+      this.hpFg.position.x = -(1 - pct) * (0.96 * (this.config.scale || 1.0)) * 0.5;
+      if (pct < 0.3) {
+        this.hpFgMat.color.setHex(0xef4444);
+      } else if (pct < 0.6) {
+        this.hpFgMat.color.setHex(0xf59e0b);
+      } else {
+        this.hpFgMat.color.setHex(this.isEnemy ? 0xef4444 : 0x22c55e);
+      }
+    }
+
+    setSelected(bool) {
+      if (this.isEnemy) return;
+      this.selected = bool;
+      if (this.selRing) {
+        this.selRing.material.opacity = bool ? 0.9 : 0;
+      }
+    }
+
+    setTargetEnemy(enemy) {
+      this.targetEnemy = enemy;
+      this.state = 'moving';
+    }
+
+    setDestination(dest) {
+      this.targetPos.copy(dest);
+      if (this.isFlying) this.targetPos.y = 3.5;
+      this.targetEnemy = null;
+      this.state = 'moving';
+    }
+
+    takeDamage(amount, isCrit = false) {
+      if (this.dead) return;
+      const actualDmg = Math.max(2, Math.round(amount - this.armor * 0.5));
+      this.hp -= actualDmg;
+      this.updateHpBar();
+
+      // Floating text
+      this.game.ui.showFloatingText(
+        this.pos,
+        `-${actualDmg}${isCrit ? '!' : ''}`,
+        this.isEnemy ? (isCrit ? '#fbbf24' : '#f87171') : '#ef4444'
+      );
+
+      // Particle blood/sparks
+      this.game.particles.emitBlood(this.pos.clone().setY(this.pos.y + 0.8), 4);
+
+      if (this.hp <= 0) {
+        this.die();
+      }
+    }
+
+    heal(amount) {
+      if (this.dead || this.hp >= this.maxHp) return;
+      const actualHeal = Math.min(amount, this.maxHp - this.hp);
+      this.hp += actualHeal;
+      this.updateHpBar();
+
+      this.game.ui.showFloatingText(this.pos, `+${actualHeal}`, '#34d399');
+      this.game.particles.emitMagic(this.pos.clone().setY(this.pos.y + 0.8), 0x34d399, 6);
+    }
+
+    applyRallyBuff(duration = 10) {
+      this.buffTimer = duration;
+      this.buffMultiplier = 1.4;
+      this.game.particles.emitMagic(this.pos, 0xf59e0b, 8);
+    }
+
+    die() {
+      this.dead = true;
+      this.state = 'dead';
+      if (this.isEnemy) {
+        this.game.gold += Math.round(this.bounty * this.game.techTree.ecoMult);
+        this.game.score += this.bounty * 10;
+        this.game.kills++;
+        this.game.particles.emitSparks(this.pos.clone().setY(0.8), 12);
+      } else {
+        this.game.particles.emitBlood(this.pos.clone().setY(0.8), 10);
+      }
+      this.game.ui.updateHUD();
+
+      // Death animation collapse & fade
+      let collapseTime = 0;
+      const collapseAnim = (dt) => {
+        collapseTime += dt;
+        this.mesh.rotation.x += dt * 3.5;
+        this.mesh.position.y -= dt * 0.8;
+        if (collapseTime > 0.6) {
+          this.game.scene.remove(this.mesh);
+        }
+      };
+      this.deathUpdate = collapseAnim;
+    }
+
+    update(dt) {
+      if (this.dead) {
+        if (this.deathUpdate) this.deathUpdate(dt);
+        return;
+      }
+
+      // Handle Buff duration
+      if (this.buffTimer > 0) {
+        this.buffTimer -= dt;
+        if (this.buffTimer <= 0) this.buffMultiplier = 1.0;
+      }
+
+      // Attack cooldown timer
+      if (this.attackCooldown > 0) {
+        this.attackCooldown -= dt;
+      }
+
+      // AI & State Machine
+      if (this.isEnemy) {
+        this.updateEnemyAI(dt);
+      } else {
+        this.updatePlayerAI(dt);
+      }
+
+      // Movement & Collision Avoidance
+      this.updateMovement(dt);
+
+      // Skeletal Procedural Walk & Attack Animation
+      this.updateAnimations(dt);
+
+      // Sync 3D mesh position
+      this.mesh.position.copy(this.pos);
+    }
+
+    updateEnemyAI(dt) {
+      // 1. If no target, find nearest player unit or Village Center
+      if (!this.targetEnemy || this.targetEnemy.dead) {
+        let nearestTarget = null;
+        let minDist = 18.0; // Aggro range for player units
+
+        // Check player units
+        for (const u of this.game.playerUnits) {
+          if (u.dead) continue;
+          const d = this.pos.distanceTo(u.pos);
+          if (d < minDist) {
+            minDist = d;
+            nearestTarget = u;
+          }
+        }
+
+        if (nearestTarget) {
+          this.targetEnemy = nearestTarget;
+        } else {
+          // Default target: Village Center
+          this.targetEnemy = this.game.villageBuilding;
+        }
+      }
+
+      // 2. Move towards target or attack if within range
+      if (this.targetEnemy) {
+        const targetPos = this.targetEnemy.pos;
+        const dist = this.pos.distanceTo(targetPos);
+
+        if (dist <= this.attackRange + (this.targetEnemy.isBuilding ? 2.5 : 0)) {
+          this.state = 'attacking';
+          this.performAttack(this.targetEnemy);
+        } else {
+          this.state = 'moving';
+          this.targetPos.copy(targetPos);
+        }
+      }
+    }
+
+    updatePlayerAI(dt) {
+      // 1. If Healer, seek damaged allies
+      if (this.isHealer) {
+        if (this.attackCooldown <= 0) {
+          let mostDamaged = null;
+          let lowestHpPct = 1.0;
+
+          for (const ally of this.game.playerUnits) {
+            if (ally.dead) continue;
+            const hpPct = ally.hp / ally.maxHp;
+            if (hpPct < 0.95 && hpPct < lowestHpPct) {
+              const d = this.pos.distanceTo(ally.pos);
+              if (d <= this.healRange) {
+                lowestHpPct = hpPct;
+                mostDamaged = ally;
+              }
+            }
+          }
+
+          if (mostDamaged) {
+            this.performHeal(mostDamaged);
+            return;
+          }
+        }
+      }
+
+      // 2. If idle or attack-moving, find nearest enemy
+      if (!this.targetEnemy || this.targetEnemy.dead) {
+        if (this.state === 'idle' || this.game.formationStance === 'aggressive') {
+          let nearest = null;
+          let minDist = this.isRanged ? this.attackRange * 1.2 : 12.0;
+
+          for (const e of this.game.enemyUnits) {
+            if (e.dead) continue;
+            const d = this.pos.distanceTo(e.pos);
+            if (d < minDist) {
+              minDist = d;
+              nearest = e;
+            }
+          }
+          if (nearest) {
+            this.targetEnemy = nearest;
+          }
+        }
+      }
+
+      // 3. Attack target if in range, otherwise approach if allowed
+      if (this.targetEnemy && !this.targetEnemy.dead) {
+        const dist = this.pos.distanceTo(this.targetEnemy.pos);
+        if (dist <= this.attackRange) {
+          this.state = 'attacking';
+          this.performAttack(this.targetEnemy);
+        } else if (this.state !== 'idle') {
+          this.state = 'moving';
+          this.targetPos.copy(this.targetEnemy.pos);
+        }
+      }
+    }
+
+    performAttack(target) {
+      // Rotate towards target
+      const lookAngle = Math.atan2(target.pos.x - this.pos.x, target.pos.z - this.pos.z);
+      this.mesh.rotation.y = lookAngle;
+
+      if (this.attackCooldown <= 0) {
+        this.attackCooldown = this.attackSpeed / this.buffMultiplier;
+        this.attackAnimTime = 0.35;
+
+        const effectiveDmg = this.damage * this.buffMultiplier * (this.isEnemy ? 1.0 : this.game.techTree.dmgMult);
+
+        if (this.isRanged) {
+          // Launch projectile
+          this.game.spawnProjectile(
+            this.pos.clone().setY(this.pos.y + 1.0),
+            target,
+            effectiveDmg,
+            this.type,
+            this.isEnemy,
+            this.isAoE,
+            this.aoeRadius
+          );
+          if (this.type === 'mage' || this.type === 'shaman') {
+            audio.playMagicCast();
+          } else {
+            audio.playBowShoot();
+          }
+        } else {
+          // Melee strike
+          const isCrit = Math.random() < 0.15;
+          const finalDmg = isCrit ? effectiveDmg * 1.6 : effectiveDmg;
+          target.takeDamage(finalDmg, isCrit);
+          audio.playSwordSwing();
+        }
+      }
+    }
+
+    performHeal(ally) {
+      this.attackCooldown = this.attackSpeed;
+      this.attackAnimTime = 0.4;
+      const lookAngle = Math.atan2(ally.pos.x - this.pos.x, ally.pos.z - this.pos.z);
+      this.mesh.rotation.y = lookAngle;
+      ally.heal(this.healPower);
+      audio.playHeal();
+    }
+
+    updateMovement(dt) {
+      if (this.state !== 'moving') return;
+
+      const toTarget = new THREE.Vector3().subVectors(this.targetPos, this.pos);
+      if (!this.isFlying) toTarget.y = 0;
+      const dist = toTarget.length();
+
+      if (dist < 0.3) {
+        if (!this.targetEnemy) {
+          this.state = 'idle';
+        }
+        return;
+      }
+
+      toTarget.normalize();
+
+      // Steering / Unit Flocking Separation
+      const separation = new THREE.Vector3();
+      const allUnits = this.isEnemy ? this.game.enemyUnits : this.game.playerUnits;
+      for (const other of allUnits) {
+        if (other === this || other.dead) continue;
+        const d = this.pos.distanceTo(other.pos);
+        if (d < 1.1) {
+          const push = new THREE.Vector3().subVectors(this.pos, other.pos).normalize();
+          separation.add(push.multiplyScalar((1.1 - d) * 2.0));
+        }
+      }
+      separation.y = 0;
+
+      // Obstacle avoidance (Town Hall Keep)
+      const distToKeep = this.pos.distanceTo(CONFIG.VILLAGE_POS);
+      if (distToKeep < 4.2 && (!this.isEnemy || this.targetEnemy !== this.game.villageBuilding)) {
+        const pushAway = new THREE.Vector3().subVectors(this.pos, CONFIG.VILLAGE_POS).normalize();
+        separation.add(pushAway.multiplyScalar(3.0));
+      }
+
+      const moveDir = toTarget.add(separation.multiplyScalar(0.4)).normalize();
+      const currentSpeed = this.speed * (this.buffMultiplier > 1 ? 1.3 : 1.0);
+      this.pos.addScaledVector(moveDir, currentSpeed * dt);
+
+      // Rotate smoothly towards movement direction
+      const targetAngle = Math.atan2(moveDir.x, moveDir.z);
+      this.mesh.rotation.y = targetAngle;
+    }
+
+    updateAnimations(dt) {
+      if (this.state === 'moving') {
+        this.walkTime += dt * 10;
+        const swing = Math.sin(this.walkTime) * 0.45;
+        if (this.rightArm) this.rightArm.rotation.x = -swing;
+        if (this.leftArm) this.leftArm.rotation.x = swing;
+        if (this.rightLeg) this.rightLeg.rotation.x = swing;
+        if (this.leftLeg) this.leftLeg.rotation.x = -swing;
+        if (!this.isFlying) {
+          this.mesh.position.y = this.pos.y + Math.abs(Math.sin(this.walkTime * 2)) * 0.08;
+        }
+      } else if (this.attackAnimTime > 0) {
+        this.attackAnimTime -= dt;
+        const strike = Math.sin((0.35 - this.attackAnimTime) * 12) * 0.8;
+        if (this.rightArm) this.rightArm.rotation.x = strike;
+      } else {
+        // Idle breathing
+        this.walkTime += dt * 2;
+        const breath = Math.sin(this.walkTime) * 0.05;
+        if (this.rightArm) this.rightArm.rotation.x = breath;
+        if (this.leftArm) this.leftArm.rotation.x = -breath;
+        if (this.rightLeg) this.rightLeg.rotation.x = 0;
+        if (this.leftLeg) this.leftLeg.rotation.x = 0;
+      }
+    }
+  }
+
+  /* ================= BUILDING / STRUCTURE CLASS ================= */
+  class Building {
+    constructor(game, type, config, pos = new THREE.Vector3()) {
+      this.game = game;
+      this.type = type;
+      this.config = config;
+      this.name = config.name;
+      this.pos = pos.clone();
+      this.isBuilding = true;
+      this.dead = false;
+
+      this.maxHp = config.hp || 500;
+      this.hp = this.maxHp;
+      this.damage = config.damage || 0;
+      this.attackRange = config.attackRange || 0;
+      this.attackSpeed = config.attackSpeed || 1.5;
+      this.reflectDamage = config.reflectDamage || 0;
+      this.attackCooldown = 0;
+
+      // 3D Mesh
+      if (type === 'village') {
+        this.mesh = ModelFactory.createVillageKeep();
+      } else if (type === 'tower') {
+        this.mesh = ModelFactory.createWatchTower();
+      } else if (type === 'barricade') {
+        this.mesh = ModelFactory.createBarricade();
+      } else {
+        this.mesh = ModelFactory.createHouse();
+      }
+
+      this.mesh.position.copy(this.pos);
+      this.game.scene.add(this.mesh);
+    }
+
+    takeDamage(amount) {
+      if (this.dead) return;
+      this.hp -= amount;
+      this.game.particles.emitSparks(this.pos.clone().setY(2.0), 6);
+
+      if (this.type === 'village') {
+        this.game.ui.updateVillageHP(this.hp, this.maxHp);
+        audio.playAlarm();
+      }
+
+      this.game.ui.showFloatingText(this.pos.clone().setY(2.5), `-${Math.round(amount)}`, '#f87171');
+
+      if (this.hp <= 0) {
+        this.die();
+      }
+    }
+
+    repair(amount) {
+      if (this.dead || this.hp >= this.maxHp) return;
+      this.hp = Math.min(this.maxHp, this.hp + amount);
+      if (this.type === 'village') {
+        this.game.ui.updateVillageHP(this.hp, this.maxHp);
+      }
+      this.game.particles.emitMagic(this.pos.clone().setY(2.0), 0x34d399, 10);
+      this.game.ui.showFloatingText(this.pos.clone().setY(2.5), `+${amount}`, '#34d399');
+    }
+
+    die() {
+      this.dead = true;
+      this.game.particles.emitSparks(this.pos.clone().setY(1.5), 25);
+      audio.playExplosion();
+
+      if (this.type === 'village') {
+        this.game.onGameOver(false);
+      } else {
+        this.game.scene.remove(this.mesh);
+      }
+    }
+
+    update(dt) {
+      if (this.dead) return;
+
+      // Watchtower / Village Ballista automatic defense
+      if (this.damage > 0 || (this.type === 'village' && this.game.techTree.hasKeepBallista)) {
+        if (this.attackCooldown > 0) {
+          this.attackCooldown -= dt;
+        } else {
+          // Find nearest enemy in range
+          const effectiveRange = this.attackRange || 14.0;
+          let nearest = null;
+          let minDist = effectiveRange;
+
+          for (const e of this.game.enemyUnits) {
+            if (e.dead) continue;
+            const d = this.pos.distanceTo(e.pos);
+            if (d < minDist) {
+              minDist = d;
+              nearest = e;
+            }
+          }
+
+          if (nearest) {
+            this.attackCooldown = this.attackSpeed;
+            const effectiveDmg = (this.damage || 35) * this.game.techTree.dmgMult;
+            this.game.spawnProjectile(
+              this.pos.clone().setY(this.type === 'village' ? 7.5 : 5.0),
+              nearest,
+              effectiveDmg,
+              'tower',
+              false,
+              false,
+              0
+            );
+            audio.playBowShoot();
+          }
+        }
+      }
+    }
+  }
+
+  /* ================= PROJECTILE CLASS ================= */
+  class Projectile {
+    constructor(game, startPos, target, damage, type, isEnemy = false, isAoE = false, aoeRadius = 0) {
+      this.game = game;
+      this.pos = startPos.clone();
+      this.target = target;
+      this.damage = damage;
+      this.type = type;
+      this.isEnemy = isEnemy;
+      this.isAoE = isAoE;
+      this.aoeRadius = aoeRadius;
+      this.dead = false;
+
+      this.speed = (type === 'mage' || type === 'shaman') ? 18 : 26;
+      this.lifeTime = 0;
+
+      // Mesh
+      if (type === 'mage' || type === 'shaman') {
+        // Fireball / Shadow Orb
+        const geo = new THREE.SphereGeometry(0.3, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: isEnemy ? 0x9333ea : 0xf97316 });
+        this.mesh = new THREE.Mesh(geo, mat);
+      } else {
+        // Arrow / Ballista Bolt
+        const geo = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6);
+        const mat = new THREE.MeshLambertMaterial({ color: isEnemy ? 0x84cc16 : 0xd97706 });
+        this.mesh = new THREE.Mesh(geo, mat);
+        this.mesh.rotation.x = Math.PI / 2;
+      }
+
+      this.mesh.position.copy(this.pos);
+      this.game.scene.add(this.mesh);
+    }
+
+    update(dt) {
+      if (this.dead) return;
+      this.lifeTime += dt;
+
+      // Target position
+      const targetPos = (this.target && !this.target.dead)
+        ? this.target.pos.clone().setY(this.target.pos.y + 0.8)
+        : (this.lastTargetPos || this.pos);
+
+      this.lastTargetPos = targetPos;
+
+      const dir = new THREE.Vector3().subVectors(targetPos, this.pos);
+      const dist = dir.length();
+
+      if (dist < 0.6 || this.lifeTime > 2.5) {
+        this.hit(targetPos);
+        return;
+      }
+
+      dir.normalize();
+      this.pos.addScaledVector(dir, this.speed * dt);
+      this.mesh.position.copy(this.pos);
+      this.mesh.lookAt(targetPos);
+    }
+
+    hit(hitPos) {
+      this.dead = true;
+      this.game.scene.remove(this.mesh);
+
+      if (this.isAoE) {
+        // Area of effect explosion
+        this.game.particles.emitMagic(hitPos, this.isEnemy ? 0x9333ea : 0xf97316, 18);
+        audio.playExplosion();
+
+        const targets = this.isEnemy ? this.game.playerUnits : this.game.enemyUnits;
+        for (const t of targets) {
+          if (t.dead) continue;
+          const d = t.pos.distanceTo(hitPos);
+          if (d <= this.aoeRadius) {
+            t.takeDamage(this.damage * (1 - d / (this.aoeRadius + 1)));
+          }
+        }
+      } else {
+        // Single target hit
+        if (this.target && !this.target.dead) {
+          this.target.takeDamage(this.damage);
+          audio.playArrowHit();
+        }
+      }
+    }
+  }
+
+  /* ================= WAVE MANAGER CLASS ================= */
+  class WaveManager {
+    constructor(game) {
+      this.game = game;
+      this.currentWave = 0;
+      this.maxWaves = 10;
+      this.waveActive = false;
+      this.waveTimer = 15; // Time between waves
+      this.spawnQueue = [];
+      this.spawnInterval = 0;
+      this.endlessMode = false;
+    }
+
+    startNextWave() {
+      this.currentWave++;
+      this.waveActive = true;
+      this.spawnQueue = [];
+
+      audio.playWarHorn();
+
+      // Determine wave compositions
+      const wave = this.currentWave;
+      let title = `¡OLEADA ${wave} ENTRANTE!`;
+      let desc = `Fuerzas oscuras avanzan hacia la Aldea.`;
+
+      // Spawn Directions: North (0), East (1), South (2), West (3)
+      const directions = [
+        new THREE.Vector3(0, 0, -CONFIG.SPAWN_DIST), // North
+        new THREE.Vector3(CONFIG.SPAWN_DIST, 0, 0),  // East
+        new THREE.Vector3(0, 0, CONFIG.SPAWN_DIST),  // South
+        new THREE.Vector3(-CONFIG.SPAWN_DIST, 0, 0)  // West
+      ];
+
+      // Wave Presets
+      if (wave === 1) {
+        title = `¡OLEADA 1: EXPLORADORES GOBLIN!`;
+        desc = `Una patrulla ligera ataca desde el Norte.`;
+        this.addSpawns('goblin', 5, directions[0]);
+      } else if (wave === 2) {
+        title = `¡OLEADA 2: INCURSIÓN ORCA!`;
+        desc = `Orcos guerreros y goblins atacan desde el Este.`;
+        this.addSpawns('goblin', 6, directions[1]);
+        this.addSpawns('orc', 3, directions[1]);
+      } else if (wave === 3) {
+        title = `¡OLEADA 3: ATAQUE EN PINZA!`;
+        desc = `Goblin ballesteros y orcos atacan desde Norte y Sur.`;
+        this.addSpawns('goblin_archer', 4, directions[0]);
+        this.addSpawns('orc', 4, directions[2]);
+      } else if (wave === 4) {
+        title = `¡OLEADA 4: TROL DE ASEDIO!`;
+        desc = `Un enorme Trol destructor avanza desde el Oeste.`;
+        this.addSpawns('troll', 1, directions[3]);
+        this.addSpawns('goblin', 8, directions[3]);
+        this.addSpawns('orc', 3, directions[3]);
+      } else if (wave === 5) {
+        title = `¡OLEADA 5: JEFE - ASALTO OSCURO!`;
+        desc = `El Chamán Esqueleto convoca hordas desde todos los frentes.`;
+        this.addSpawns('shaman', 2, directions[0]);
+        this.addSpawns('orc', 6, directions[1]);
+        this.addSpawns('goblin_archer', 6, directions[2]);
+        this.addSpawns('troll', 1, directions[3]);
+      } else if (wave === 6) {
+        title = `¡OLEADA 6: SOMBRAS ALADAS!`;
+        desc = `Wyverns voladores se aproximan. ¡Arqueros listos!`;
+        this.addSpawns('wyvern', 3, directions[0]);
+        this.addSpawns('orc', 6, directions[2]);
+      } else if (wave === 7) {
+        title = `¡OLEADA 7: VANGUARDIA BRUTAL!`;
+        desc = `Troles gemelos y ballesteros desde el Este y Oeste.`;
+        this.addSpawns('troll', 2, directions[1]);
+        this.addSpawns('goblin_archer', 8, directions[3]);
+        this.addSpawns('orc', 6, directions[1]);
+      } else if (wave === 8) {
+        title = `¡OLEADA 8: HORDA DEL CATACLISMO!`;
+        desc = `Wyverns, Chamanes y tropas pesadas atacan simultáneamente.`;
+        this.addSpawns('wyvern', 4, directions[0]);
+        this.addSpawns('shaman', 3, directions[2]);
+        this.addSpawns('troll', 2, directions[1]);
+      } else if (wave === 9) {
+        title = `¡OLEADA 9: MAREA DE SANGRE!`;
+        desc = `Enjambre masivo desde las cuatro direcciones cardinales.`;
+        directions.forEach(dir => {
+          this.addSpawns('orc', 4, dir);
+          this.addSpawns('goblin_archer', 3, dir);
+        });
+      } else if (wave === 10) {
+        title = `¡OLEADA 10: EL SEÑOR DEL ABISMO!`;
+        desc = `El Titán Señor del Abismo ha llegado para aniquilar la Aldea.`;
+        this.addSpawns('warlord', 1, directions[0]);
+        this.addSpawns('troll', 2, directions[2]);
+        this.addSpawns('wyvern', 4, directions[1]);
+        this.addSpawns('shaman', 2, directions[3]);
+      } else {
+        // Endless Wave generation
+        title = `¡OLEADA INFINITA ${wave}!`;
+        desc = `Dificultad extrema escalada.`;
+        const count = Math.round(wave * 2.2);
+        directions.forEach(dir => {
+          this.addSpawns('orc', Math.round(count / 2), dir);
+          this.addSpawns('goblin_archer', Math.round(count / 3), dir);
+          if (wave % 2 === 0) this.addSpawns('wyvern', 2, dir);
+          if (wave % 3 === 0) this.addSpawns('troll', 1, dir);
+        });
+      }
+
+      this.game.ui.showWaveAlert(title, desc);
+      this.game.ui.updateWaveHUD(this.currentWave, this.maxWaves, this.waveTimer);
+    }
+
+    addSpawns(enemyType, count, baseDir) {
+      for (let i = 0; i < count; i++) {
+        const offset = new THREE.Vector3(
+          (Math.random() - 0.5) * 14,
+          0,
+          (Math.random() - 0.5) * 14
+        );
+        const spawnPos = baseDir.clone().add(offset);
+        this.spawnQueue.push({
+          type: enemyType,
+          pos: spawnPos,
+          delay: Math.random() * 6.0
+        });
+      }
+    }
+
+    update(dt) {
+      if (!this.waveActive) {
+        // Countdown to next wave
+        this.waveTimer -= dt;
+        this.game.ui.updateWaveHUD(this.currentWave, this.maxWaves, Math.ceil(this.waveTimer));
+        if (this.waveTimer <= 0) {
+          this.startNextWave();
+        }
+        return;
+      }
+
+      // Spawning queued units
+      for (let i = this.spawnQueue.length - 1; i >= 0; i--) {
+        const item = this.spawnQueue[i];
+        item.delay -= dt;
+        if (item.delay <= 0) {
+          this.game.spawnEnemy(item.type, item.pos);
+          this.spawnQueue.splice(i, 1);
+        }
+      }
+
+      // Check if wave is cleared
+      if (this.spawnQueue.length === 0 && this.game.enemyUnits.length === 0) {
+        this.onWaveCompleted();
+      }
+    }
+
+    onWaveCompleted() {
+      this.waveActive = false;
+      const waveRewardGold = 60 + this.currentWave * 25;
+      const waveRewardWood = 30 + this.currentWave * 15;
+      this.game.gold += Math.round(waveRewardGold * this.game.techTree.ecoMult);
+      this.game.wood += waveRewardWood;
+      this.game.mana = Math.min(this.game.maxMana, this.game.mana + 30);
+      this.game.ui.showFloatingText(
+        CONFIG.VILLAGE_POS.clone().setY(4.5),
+        `+${waveRewardGold}g +${waveRewardWood}w`,
+        '#fbbf24'
+      );
+
+      if (this.currentWave >= this.maxWaves && !this.endlessMode) {
+        // Victory!
+        this.game.onGameOver(true);
+      } else {
+        this.waveTimer = 20; // 20s prep time for next wave
+        this.game.ui.showWaveAlert(
+          `¡OLEADA ${this.currentWave} SUPERADA!`,
+          `Prepará a tus tropas. Oro +${waveRewardGold}, Madera +${waveRewardWood}.`
+        );
+      }
+    }
+  }
+
+  /* ================= UI & HUD CONTROLLER ================= */
+  class UIManager {
+    constructor(game) {
+      this.game = game;
+      this.fctContainer = document.getElementById('floating-text-container');
+      this.marqueeElem = document.getElementById('selection-marquee');
+      this.minimapCanvas = document.getElementById('minimap-canvas');
+      this.minimapCtx = this.minimapCanvas.getContext('2d');
+      this.minimapCameraBox = document.getElementById('minimap-camera-box');
+      this.selectionPanel = document.getElementById('selection-panel');
+
+      this.initEvents();
+    }
+
+    initEvents() {
+      // Audio toggle button
+      document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+        const enabled = audio.toggle();
+        const icon = document.getElementById('sound-icon');
+        icon.className = enabled ? 'fa-solid fa-volume-high text-xs' : 'fa-solid fa-volume-xmark text-xs text-red-400';
+      });
+
+      // Speed button
+      const speedBtn = document.getElementById('btn-speed-toggle');
+      speedBtn.addEventListener('click', () => {
+        if (this.game.gameSpeed === 1.0) {
+          this.game.gameSpeed = 2.0;
+          speedBtn.innerText = '2x';
+          speedBtn.className = speedBtn.className.replace('text-slate-200', 'text-amber-400 border-amber-500');
+        } else {
+          this.game.gameSpeed = 1.0;
+          speedBtn.innerText = '1x';
+          speedBtn.className = speedBtn.className.replace('text-amber-400 border-amber-500', 'text-slate-200');
+        }
+      });
+
+      // Tech tree open/close
+      const techModal = document.getElementById('modal-tech');
+      document.getElementById('btn-open-tech').addEventListener('click', () => {
+        techModal.classList.remove('hidden');
+        audio.playSelect();
+      });
+      document.getElementById('btn-close-tech').addEventListener('click', () => techModal.classList.add('hidden'));
+      document.getElementById('btn-close-tech-2').addEventListener('click', () => techModal.classList.add('hidden'));
+
+      // Help modal
+      const helpModal = document.getElementById('modal-help');
+      document.getElementById('btn-help-toggle').addEventListener('click', () => helpModal.classList.remove('hidden'));
+      document.getElementById('btn-close-help').addEventListener('click', () => helpModal.classList.add('hidden'));
+      document.getElementById('btn-close-help-2').addEventListener('click', () => helpModal.classList.add('hidden'));
+
+      // Center village button
+      document.getElementById('btn-center-village').addEventListener('click', () => this.game.centerCameraOnVillage());
+
+      // Recruitment buttons
+      document.getElementById('recruit-infantry').addEventListener('click', () => this.game.recruitUnit('infantry'));
+      document.getElementById('recruit-archer').addEventListener('click', () => this.game.recruitUnit('archer'));
+      document.getElementById('recruit-knight').addEventListener('click', () => this.game.recruitUnit('knight'));
+      document.getElementById('recruit-mage').addEventListener('click', () => this.game.recruitUnit('mage'));
+      document.getElementById('recruit-healer').addEventListener('click', () => this.game.recruitUnit('healer'));
+      document.getElementById('build-tower').addEventListener('click', () => this.game.startPlacingStructure('tower'));
+      document.getElementById('build-barricade').addEventListener('click', () => this.game.startPlacingStructure('barricade'));
+
+      // Commander Spells
+      document.getElementById('spell-rally').addEventListener('click', () => this.game.castSpell('rally'));
+      document.getElementById('spell-heal').addEventListener('click', () => this.game.castSpell('heal'));
+      document.getElementById('spell-meteor').addEventListener('click', () => this.game.castSpell('meteor'));
+      document.getElementById('spell-fortify').addEventListener('click', () => this.game.castSpell('fortify'));
+
+      // Command Card Buttons
+      document.getElementById('btn-cmd-attack').addEventListener('click', () => this.game.setAttackMoveMode());
+      document.getElementById('btn-cmd-stop').addEventListener('click', () => this.game.stopSelectedUnits());
+      document.getElementById('btn-cmd-formation').addEventListener('click', () => this.game.cycleFormation());
+      document.getElementById('btn-cmd-focus').addEventListener('click', () => this.game.selectAllUnits());
+      document.getElementById('btn-deselect').addEventListener('click', () => this.game.deselectAll());
+
+      // Tech Upgrades
+      document.getElementById('buy-upgrade-melee').addEventListener('click', () => this.game.buyUpgrade('melee'));
+      document.getElementById('buy-upgrade-armor').addEventListener('click', () => this.game.buyUpgrade('armor'));
+      document.getElementById('buy-upgrade-ranged').addEventListener('click', () => this.game.buyUpgrade('ranged'));
+      document.getElementById('buy-upgrade-village').addEventListener('click', () => this.game.buyUpgrade('village'));
+      document.getElementById('buy-upgrade-eco').addEventListener('click', () => this.game.buyUpgrade('eco'));
+      document.getElementById('buy-upgrade-mana').addEventListener('click', () => this.game.buyUpgrade('mana'));
+
+      // Restart Button
+      document.getElementById('btn-restart-game').addEventListener('click', () => location.reload());
+      document.getElementById('btn-endless-mode').addEventListener('click', () => {
+        document.getElementById('modal-gameover').classList.add('hidden');
+        this.game.waveManager.endlessMode = true;
+        this.game.waveManager.startNextWave();
+      });
+
+      // Minimap Click Pan
+      this.minimapCanvas.addEventListener('mousedown', (e) => {
+        const rect = this.minimapCanvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width;
+        const my = (e.clientY - rect.top) / rect.height;
+        const worldX = (mx - 0.5) * CONFIG.MAP_SIZE;
+        const worldZ = (my - 0.5) * CONFIG.MAP_SIZE;
+        this.game.cameraTarget.set(worldX, 0, worldZ);
+      });
+    }
+
+    updateHUD() {
+      document.getElementById('hud-gold').innerText = Math.floor(this.game.gold);
+      document.getElementById('hud-wood').innerText = Math.floor(this.game.wood);
+      document.getElementById('hud-mana').innerText = `${Math.floor(this.game.mana)}/${this.game.maxMana}`;
+      document.getElementById('hud-pop').innerText = `${this.game.playerUnits.length}/${this.game.maxPop}`;
+    }
+
+    updateVillageHP(hp, maxHp) {
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      const bar = document.getElementById('hud-village-hp-bar');
+      const text = document.getElementById('hud-village-hp-text');
+      bar.style.width = `${pct}%`;
+      text.innerText = `${Math.max(0, Math.round(hp))}/${maxHp}`;
+
+      if (pct < 30) {
+        bar.className = 'bg-gradient-to-r from-red-600 to-red-400 h-full rounded-full transition-all duration-300 w-full animate-pulse';
+      } else if (pct < 60) {
+        bar.className = 'bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-300 w-full';
+      } else {
+        bar.className = 'bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full transition-all duration-300 w-full';
+      }
+    }
+
+    updateWaveHUD(wave, maxWaves, timerSeconds) {
+      document.getElementById('hud-wave-number').innerText = `${wave} / ${maxWaves}`;
+      const timerElem = document.getElementById('hud-wave-timer');
+      const pillElem = document.getElementById('hud-wave-timer-pill');
+
+      if (this.game.waveManager.waveActive) {
+        timerElem.innerText = '¡EN COMBATE!';
+        pillElem.className = 'px-2.5 py-1 rounded-xl bg-red-950/90 border border-red-500 text-red-300 font-mono text-xs flex items-center gap-1.5 animate-pulse';
+      } else {
+        timerElem.innerText = `${timerSeconds}s`;
+        pillElem.className = 'px-2.5 py-1 rounded-xl bg-slate-900/80 border border-slate-700 text-amber-300 font-mono text-xs flex items-center gap-1.5';
+      }
+    }
+
+    showWaveAlert(title, subtitle) {
+      const banner = document.getElementById('wave-alert-banner');
+      document.getElementById('wave-alert-title').innerText = title;
+      document.getElementById('wave-alert-subtitle').innerText = subtitle;
+      banner.classList.remove('hidden');
+      setTimeout(() => banner.classList.add('hidden'), 4500);
+    }
+
+    updateSelectionPanel(selectedUnits) {
+      if (selectedUnits.length === 0) {
+        this.selectionPanel.classList.add('hidden');
+        return;
+      }
+
+      this.selectionPanel.classList.remove('hidden');
+
+      if (selectedUnits.length === 1) {
+        const u = selectedUnits[0];
+        document.getElementById('selection-title').innerText = u.name;
+        document.getElementById('selection-subtitle').innerText = `Nv. 1 | Daño: ${Math.round(u.damage * this.game.techTree.dmgMult)} | Blindaje: ${u.armor}`;
+        document.getElementById('selection-hp-text').innerText = `${Math.max(0, Math.round(u.hp))} / ${u.maxHp}`;
+        document.getElementById('selection-hp-bar').style.width = `${(u.hp / u.maxHp) * 100}%`;
+        document.getElementById('selection-multi-badges').innerHTML = `
+          <span class="text-[10px] bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 font-semibold">
+            ${u.config.desc || 'Soldado Leal'}
+          </span>
+        `;
+      } else {
+        let totalHp = 0;
+        let totalMaxHp = 0;
+        const counts = {};
+
+        selectedUnits.forEach(u => {
+          totalHp += Math.max(0, u.hp);
+          totalMaxHp += u.maxHp;
+          counts[u.name] = (counts[u.name] || 0) + 1;
+        });
+
+        document.getElementById('selection-title').innerText = 'Escuadrón Seleccionado';
+        document.getElementById('selection-subtitle').innerText = `${selectedUnits.length} Soldados Bajo Tu Mando`;
+        document.getElementById('selection-hp-text').innerText = `${Math.round(totalHp)} / ${totalMaxHp}`;
+        document.getElementById('selection-hp-bar').style.width = `${(totalHp / totalMaxHp) * 100}%`;
+
+        let badgesHtml = '';
+        for (const [name, count] of Object.entries(counts)) {
+          badgesHtml += `
+            <span class="text-[10px] bg-slate-800 text-amber-300 px-2 py-0.5 rounded border border-slate-700 font-bold">
+              ${name} x${count}
+            </span>
+          `;
+        }
+        document.getElementById('selection-multi-badges').innerHTML = badgesHtml;
+      }
+    }
+
+    showFloatingText(worldPos, text, color = '#ffffff') {
+      const screenPos = this.game.toScreenCoords(worldPos);
+      if (!screenPos) return;
+
+      const fct = document.createElement('div');
+      fct.className = 'fct';
+      fct.style.left = `${screenPos.x}px`;
+      fct.style.top = `${screenPos.y}px`;
+      fct.style.color = color;
+      fct.innerText = text;
+
+      this.fctContainer.appendChild(fct);
+
+      requestAnimationFrame(() => {
+        fct.style.transform = 'translate(-50%, -140%) scale(1.2)';
+        fct.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        if (fct.parentNode) fct.parentNode.removeChild(fct);
+      }, 850);
+    }
+
+    renderMinimap() {
+      const ctx = this.minimapCtx;
+      const w = this.minimapCanvas.width;
+      const h = this.minimapCanvas.height;
+      const mapHalf = CONFIG.MAP_SIZE / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background terrain
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, w, h);
+
+      // Village Center
+      ctx.fillStyle = '#f59e0b';
+      const vx = ((CONFIG.VILLAGE_POS.x + mapHalf) / CONFIG.MAP_SIZE) * w;
+      const vz = ((CONFIG.VILLAGE_POS.z + mapHalf) / CONFIG.MAP_SIZE) * h;
+      ctx.fillRect(vx - 4, vz - 4, 8, 8);
+
+      // Buildings
+      ctx.fillStyle = '#78350f';
+      for (const b of this.game.buildings) {
+        if (b.dead || b.type === 'village') continue;
+        const bx = ((b.pos.x + mapHalf) / CONFIG.MAP_SIZE) * w;
+        const bz = ((b.pos.z + mapHalf) / CONFIG.MAP_SIZE) * h;
+        ctx.fillRect(bx - 2, bz - 2, 4, 4);
+      }
+
+      // Player Units (Blue/Green dots)
+      ctx.fillStyle = '#38bdf8';
+      for (const u of this.game.playerUnits) {
+        if (u.dead) continue;
+        const ux = ((u.pos.x + mapHalf) / CONFIG.MAP_SIZE) * w;
+        const uz = ((u.pos.z + mapHalf) / CONFIG.MAP_SIZE) * h;
+        ctx.beginPath();
+        ctx.arc(ux, uz, u.selected ? 3 : 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Enemy Units (Red dots)
+      ctx.fillStyle = '#ef4444';
+      for (const e of this.game.enemyUnits) {
+        if (e.dead) continue;
+        const ex = ((e.pos.x + mapHalf) / CONFIG.MAP_SIZE) * w;
+        const ez = ((e.pos.z + mapHalf) / CONFIG.MAP_SIZE) * h;
+        ctx.beginPath();
+        ctx.arc(ex, ez, e.isBoss ? 4 : 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Camera Box indicator
+      const camX = ((this.game.cameraTarget.x + mapHalf) / CONFIG.MAP_SIZE) * w;
+      const camZ = ((this.game.cameraTarget.z + mapHalf) / CONFIG.MAP_SIZE) * h;
+      this.minimapCameraBox.style.left = `${camX + 6}px`;
+      this.minimapCameraBox.style.top = `${camZ + 6}px`;
+      this.minimapCameraBox.style.width = '38px';
+      this.minimapCameraBox.style.height = '38px';
+    }
+  }
+
+  /* ================= MAIN GAME CONTROLLER & 3D WORLD ================= */
+  class StrategyGame {
+    constructor() {
+      this.canvas = document.getElementById('game-canvas');
+      this.clock = new THREE.Clock();
+      this.gameSpeed = 1.0;
+
+      // Resources
+      this.gold = 180;
+      this.wood = 90;
+      this.mana = 60;
+      this.maxMana = 100;
+      this.maxPop = 20;
+      this.score = 0;
+      this.kills = 0;
+
+      // Formations: 'line', 'wedge', 'scatter'
+      this.formation = 'line';
+      this.formationStance = 'defensive';
+
+      // Tech Upgrades State
+      this.techTree = {
+        meleeLvl: 0,
+        armorLvl: 0,
+        rangedLvl: 0,
+        villageLvl: 0,
+        ecoLvl: 0,
+        manaLvl: 0,
+        dmgMult: 1.0,
+        armorBonus: 0,
+        ecoMult: 1.0,
+        hasKeepBallista: false
+      };
+
+      // Entities
+      this.playerUnits = [];
+      this.enemyUnits = [];
+      this.buildings = [];
+      this.projectiles = [];
+      this.selectedUnits = [];
+
+      // Structure placement state
+      this.placingStructureType = null;
+      this.previewBuildingMesh = null;
+
+      // Mouse & Raycasting
+      this.raycaster = new THREE.Raycaster();
+      this.mouse = new THREE.Vector2();
+      this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      this.isMouseDown = false;
+      this.dragStart = { x: 0, y: 0 };
+      this.isDragging = false;
+
+      // Camera Steering
+      this.cameraTarget = new THREE.Vector3(0, 0, 0);
+      this.cameraOffset = new THREE.Vector3(0, 32, 28);
+      this.keys = {};
+
+      this.initThree();
+      this.buildWorldEnvironment();
+      this.particles = new ParticleManager(this.scene);
+      this.ui = new UIManager(this);
+      this.waveManager = new WaveManager(this);
+
+      this.initStartingSquad();
+      this.initInputControls();
+
+      // Start loop
+      this.animate = this.animate.bind(this);
+      requestAnimationFrame(this.animate);
+    }
+
+    initThree() {
+      // Scene
+      this.scene = new THREE.Scene();
+      this.scene.background = new THREE.Color(0x0f172a);
+      this.scene.fog = new THREE.FogExp2(0x0f172a, 0.009);
+
+      // Camera (2.5D Isometric Tilt)
+      const aspect = window.innerWidth / window.innerHeight;
+      this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 300);
+      this.updateCameraPos();
+
+      // Renderer
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: this.canvas,
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      this.scene.add(ambientLight);
+
+      this.sunLight = new THREE.DirectionalLight(0xfef08a, 1.25);
+      this.sunLight.position.set(40, 65, 35);
+      this.sunLight.castShadow = true;
+      this.sunLight.shadow.mapSize.width = 2048;
+      this.sunLight.shadow.mapSize.height = 2048;
+      this.sunLight.shadow.camera.near = 10;
+      this.sunLight.shadow.camera.far = 160;
+      this.sunLight.shadow.camera.left = -50;
+      this.sunLight.shadow.camera.right = 50;
+      this.sunLight.shadow.camera.top = 50;
+      this.sunLight.shadow.camera.bottom = -50;
+      this.scene.add(this.sunLight);
+
+      // Soft Blue Rim Light
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.4);
+      rimLight.position.set(-40, 30, -35);
+      this.scene.add(rimLight);
+
+      window.addEventListener('resize', () => {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    buildWorldEnvironment() {
+      // 1. Terrain Ground
+      const groundGeo = new THREE.PlaneGeometry(CONFIG.MAP_SIZE, CONFIG.MAP_SIZE, 64, 64);
+      groundGeo.rotateX(-Math.PI / 2);
+
+      // Vertex color gradient for grassy center & sandy borders
+      const count = groundGeo.attributes.position.count;
+      groundGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+      const colors = groundGeo.attributes.color;
+
+      for (let i = 0; i < count; i++) {
+        const x = groundGeo.attributes.position.getX(i);
+        const z = groundGeo.attributes.position.getZ(i);
+        const dist = Math.sqrt(x * x + z * z);
+
+        if (dist < 18) {
+          // Lush Green Village Center
+          colors.setXYZ(i, 0.15, 0.52, 0.22);
+        } else if (dist < 42) {
+          // Forest Meadow
+          colors.setXYZ(i, 0.1, 0.42, 0.18);
+        } else {
+          // Dark Outskirts
+          colors.setXYZ(i, 0.08, 0.25, 0.12);
+        }
+      }
+
+      const groundMat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.85,
+        metalness: 0.1
+      });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.receiveShadow = true;
+      ground.name = 'ground';
+      this.scene.add(ground);
+
+      // 2. Cobblestone Pathways to 4 Gates
+      const pathMat = new THREE.MeshLambertMaterial({ color: 0x64748b });
+      const pathGeoN = new THREE.PlaneGeometry(3.6, CONFIG.MAP_SIZE);
+      pathGeoN.rotateX(-Math.PI / 2);
+      const pathN = new THREE.Mesh(pathGeoN, pathMat);
+      pathN.position.y = 0.02;
+      pathN.receiveShadow = true;
+      this.scene.add(pathN);
+
+      const pathGeoE = new THREE.PlaneGeometry(CONFIG.MAP_SIZE, 3.6);
+      pathGeoE.rotateX(-Math.PI / 2);
+      const pathE = new THREE.Mesh(pathGeoE, pathMat);
+      pathE.position.y = 0.02;
+      pathE.receiveShadow = true;
+      this.scene.add(pathE);
+
+      // 3. Central Village Base (Great Keep)
+      this.villageBuilding = new Building(this, 'village', {
+        name: 'Castillo de la Aldea',
+        hp: CONFIG.VILLAGE_MAX_HP
+      }, CONFIG.VILLAGE_POS);
+      this.buildings.push(this.villageBuilding);
+
+      // 4. Village Surroundings: Houses, Windmill, Banners, Fences
+      const house1 = new Building(this, 'house', { name: 'Casa de Aldeanos', hp: 350 }, new THREE.Vector3(-8, 0, -6));
+      const house2 = new Building(this, 'house', { name: 'Herrería Comunal', hp: 350 }, new THREE.Vector3(8, 0, -7));
+      const house3 = new Building(this, 'house', { name: 'Granero', hp: 350 }, new THREE.Vector3(-9, 0, 7));
+      this.buildings.push(house1, house2, house3);
+
+      this.windmillMesh = ModelFactory.createWindmill();
+      this.windmillMesh.position.set(10, 0, 8);
+      this.scene.add(this.windmillMesh);
+
+      // 5. Environmental Trees and Rocks
+      for (let i = 0; i < 90; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 18 + Math.random() * 45;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+
+        // Skip pathways
+        if (Math.abs(x) < 3.5 || Math.abs(z) < 3.5) continue;
+
+        if (Math.random() > 0.25) {
+          const tree = ModelFactory.createTree();
+          tree.position.set(x, 0, z);
+          this.scene.add(tree);
+        } else {
+          const rock = ModelFactory.createRock();
+          rock.position.set(x, 0, z);
+          this.scene.add(rock);
+        }
+      }
+    }
+
+    initStartingSquad() {
+      // Start with 2 Swordsmen and 2 Archers
+      this.spawnPlayerUnit('infantry', new THREE.Vector3(-3, 0, 4));
+      this.spawnPlayerUnit('infantry', new THREE.Vector3(3, 0, 4));
+      this.spawnPlayerUnit('archer', new THREE.Vector3(-2, 0, 7));
+      this.spawnPlayerUnit('archer', new THREE.Vector3(2, 0, 7));
+      
+      // Auto-select starting squad
+      this.selectAllUnits();
+    }
+
+    spawnPlayerUnit(type, pos) {
+      if (this.playerUnits.length >= this.maxPop) return null;
+      const config = CONFIG.UNITS[type];
+      const unit = new Unit(this, type, config, false, pos);
+      this.playerUnits.push(unit);
+      this.ui.updateHUD();
+      return unit;
+    }
+
+    spawnEnemy(type, pos) {
+      const config = CONFIG.ENEMIES[type];
+      const enemy = new Unit(this, type, config, true, pos);
+      this.enemyUnits.push(enemy);
+      return enemy;
+    }
+
+    spawnProjectile(startPos, target, damage, type, isEnemy, isAoE, aoeRadius) {
+      const proj = new Projectile(this, startPos, target, damage, type, isEnemy, isAoE, aoeRadius);
+      this.projectiles.push(proj);
+    }
+
+    recruitUnit(type) {
+      audio.init();
+      const cfg = CONFIG.UNITS[type];
+      if (this.playerUnits.length >= this.maxPop) {
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡LÍMITE DE TROPAS ALCANZADO!', '#ef4444');
+        return;
+      }
+      if (this.gold < cfg.costGold) {
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡ORO INSUFICIENTE!', '#ef4444');
+        return;
+      }
+
+      this.gold -= cfg.costGold;
+      audio.playRecruit();
+
+      // Spawn at Village Keep exit with slight random offset
+      const spawnPos = new THREE.Vector3(
+        (Math.random() - 0.5) * 4,
+        0,
+        4.5 + Math.random() * 2
+      );
+      const unit = this.spawnPlayerUnit(type, spawnPos);
+      this.ui.showFloatingText(spawnPos.clone().setY(2.0), `+1 ${cfg.name}`, '#38bdf8');
+      this.ui.updateHUD();
+    }
+
+    startPlacingStructure(type) {
+      audio.init();
+      const cfg = CONFIG.STRUCTURES[type];
+      if (this.gold < cfg.costGold || this.wood < cfg.costWood) {
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡RECURSOS INSUFICIENTES!', '#ef4444');
+        return;
+      }
+
+      this.placingStructureType = type;
+      if (this.previewBuildingMesh) this.scene.remove(this.previewBuildingMesh);
+
+      if (type === 'tower') {
+        this.previewBuildingMesh = ModelFactory.createWatchTower();
+      } else {
+        this.previewBuildingMesh = ModelFactory.createBarricade();
+      }
+      this.previewBuildingMesh.traverse(child => {
+        if (child.isMesh) {
+          child.material = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.6,
+            wireframe: true
+          });
+        }
+      });
+      this.scene.add(this.previewBuildingMesh);
+    }
+
+    confirmPlaceStructure(pos) {
+      const type = this.placingStructureType;
+      const cfg = CONFIG.STRUCTURES[type];
+
+      this.gold -= cfg.costGold;
+      this.wood -= cfg.costWood;
+      audio.playBuild();
+
+      const b = new Building(this, type, cfg, pos);
+      this.buildings.push(b);
+      this.particles.emitSparks(pos.clone().setY(1.0), 15);
+      this.ui.showFloatingText(pos.clone().setY(3.0), `+1 ${cfg.name}`, '#fbbf24');
+
+      if (this.previewBuildingMesh) {
+        this.scene.remove(this.previewBuildingMesh);
+        this.previewBuildingMesh = null;
+      }
+      this.placingStructureType = null;
+      this.ui.updateHUD();
+    }
+
+    cancelPlaceStructure() {
+      if (this.previewBuildingMesh) {
+        this.scene.remove(this.previewBuildingMesh);
+        this.previewBuildingMesh = null;
+      }
+      this.placingStructureType = null;
+    }
+
+    castSpell(spellName) {
+      audio.init();
+      if (spellName === 'rally') {
+        if (this.mana < 25) {
+          this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡MANÁ INSUFICIENTE!', '#38bdf8');
+          return;
+        }
+        this.mana -= 25;
+        audio.playWarHorn();
+        this.playerUnits.forEach(u => u.applyRallyBuff(10));
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(4.0), '¡CUERNO DE GUERRA: +40% DAÑO & VEL!', '#fbbf24');
+      } else if (spellName === 'heal') {
+        if (this.mana < 40) {
+          this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡MANÁ INSUFICIENTE!', '#38bdf8');
+          return;
+        }
+        this.mana -= 40;
+        audio.playHeal();
+        this.playerUnits.forEach(u => u.heal(300));
+        this.villageBuilding.repair(300);
+        this.particles.emitShockwave(CONFIG.VILLAGE_POS, 0x34d399, 12);
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(4.0), '¡LLUVIA SAGRADA: +300 HP!', '#34d399');
+      } else if (spellName === 'meteor') {
+        if (this.mana < 60) {
+          this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡MANÁ INSUFICIENTE!', '#38bdf8');
+          return;
+        }
+        this.mana -= 60;
+        const centerPos = this.cameraTarget.clone();
+        audio.playExplosion();
+        this.particles.emitShockwave(centerPos, 0xef4444, 8);
+        this.particles.emitMagic(centerPos, 0xf97316, 30);
+        this.enemyUnits.forEach(e => {
+          if (!e.dead && e.pos.distanceTo(centerPos) < 14) {
+            e.takeDamage(450, true);
+          }
+        });
+        this.ui.showFloatingText(centerPos.clone().setY(4.0), '¡LLUVIA DE FUEGO DEVORADORA!', '#ef4444');
+      } else if (spellName === 'fortify') {
+        if (this.mana < 50) {
+          this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(3.5), '¡MANÁ INSUFICIENTE!', '#38bdf8');
+          return;
+        }
+        this.mana -= 50;
+        audio.playSelect();
+        this.villageBuilding.repair(500);
+        this.particles.emitShockwave(CONFIG.VILLAGE_POS, 0x38bdf8, 10);
+        this.ui.showFloatingText(CONFIG.VILLAGE_POS.clone().setY(4.0), '¡FORTIFICACIÓN ACTIVADA!', '#38bdf8');
+      }
+      this.ui.updateHUD();
+    }
+
+    buyUpgrade(tech) {
+      audio.init();
+      const tt = this.techTree;
+      if (tech === 'melee' && tt.meleeLvl < 3) {
+        const cost = 80 + tt.meleeLvl * 40;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.meleeLvl++;
+        tt.dmgMult += 0.2;
+        document.getElementById('tech-lvl-melee').innerText = `Nv. ${tt.meleeLvl}/3`;
+        document.getElementById('tech-cost-melee').innerText = `${80 + tt.meleeLvl * 40}g`;
+        audio.playBuild();
+      } else if (tech === 'armor' && tt.armorLvl < 3) {
+        const cost = 100 + tt.armorLvl * 50;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.armorLvl++;
+        this.playerUnits.forEach(u => {
+          u.armor += 3;
+          u.maxHp += 50;
+          u.hp += 50;
+        });
+        document.getElementById('tech-lvl-armor').innerText = `Nv. ${tt.armorLvl}/3`;
+        document.getElementById('tech-cost-armor').innerText = `${100 + tt.armorLvl * 50}g`;
+        audio.playBuild();
+      } else if (tech === 'ranged' && tt.rangedLvl < 3) {
+        const cost = 90 + tt.rangedLvl * 45;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.rangedLvl++;
+        this.playerUnits.filter(u => u.isRanged).forEach(u => {
+          u.attackRange += 2.5;
+        });
+        document.getElementById('tech-lvl-ranged').innerText = `Nv. ${tt.rangedLvl}/3`;
+        document.getElementById('tech-cost-ranged').innerText = `${90 + tt.rangedLvl * 45}g`;
+        audio.playBuild();
+      } else if (tech === 'village' && tt.villageLvl < 3) {
+        const cost = 120 + tt.villageLvl * 60;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.villageLvl++;
+        this.villageBuilding.maxHp += 500;
+        this.villageBuilding.hp += 500;
+        tt.hasKeepBallista = true;
+        const ballistaMesh = this.villageBuilding.mesh.getObjectByName('keepBallista');
+        if (ballistaMesh) ballistaMesh.visible = true;
+        this.ui.updateVillageHP(this.villageBuilding.hp, this.villageBuilding.maxHp);
+        document.getElementById('tech-lvl-village').innerText = `Nv. ${tt.villageLvl}/3`;
+        document.getElementById('tech-cost-village').innerText = `${120 + tt.villageLvl * 60}g`;
+        audio.playBuild();
+      } else if (tech === 'eco' && tt.ecoLvl < 3) {
+        const cost = 75 + tt.ecoLvl * 40;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.ecoLvl++;
+        tt.ecoMult += 0.35;
+        document.getElementById('tech-lvl-eco').innerText = `Nv. ${tt.ecoLvl}/3`;
+        document.getElementById('tech-cost-eco').innerText = `${75 + tt.ecoLvl * 40}g`;
+        audio.playBuild();
+      } else if (tech === 'mana' && tt.manaLvl < 3) {
+        const cost = 110 + tt.manaLvl * 50;
+        if (this.gold < cost) return;
+        this.gold -= cost;
+        tt.manaLvl++;
+        this.maxMana += 50;
+        this.mana += 50;
+        document.getElementById('tech-lvl-mana').innerText = `Nv. ${tt.manaLvl}/3`;
+        document.getElementById('tech-cost-mana').innerText = `${110 + tt.manaLvl * 50}g`;
+        audio.playBuild();
+      }
+      this.ui.updateHUD();
+    }
+
+    initInputControls() {
+      // Keyboard input
+      window.addEventListener('keydown', (e) => {
+        this.keys[e.key.toLowerCase()] = true;
+        audio.init();
+
+        if (e.key === ' ' || e.code === 'Space') {
+          e.preventDefault();
+          this.centerCameraOnVillage();
+        } else if (e.key === '1') this.recruitUnit('infantry');
+        else if (e.key === '2') this.recruitUnit('archer');
+        else if (e.key === '3') this.recruitUnit('knight');
+        else if (e.key === '4') this.recruitUnit('mage');
+        else if (e.key === '5') this.recruitUnit('healer');
+        else if (e.key === '6') this.startPlacingStructure('tower');
+        else if (e.key === '7') this.startPlacingStructure('barricade');
+        else if (e.key.toLowerCase() === 'q') this.castSpell('rally');
+        else if (e.key.toLowerCase() === 'w') this.castSpell('heal');
+        else if (e.key.toLowerCase() === 'e') this.castSpell('meteor');
+        else if (e.key.toLowerCase() === 'r') this.castSpell('fortify');
+        else if (e.key.toLowerCase() === 'a') this.setAttackMoveMode();
+        else if (e.key.toLowerCase() === 's') this.stopSelectedUnits();
+        else if (e.key.toLowerCase() === 'f') this.cycleFormation();
+        else if (e.key.toLowerCase() === 'u') document.getElementById('btn-open-tech').click();
+        else if (e.key.toLowerCase() === 'm') document.getElementById('btn-sound-toggle').click();
+        else if (e.key === 'Escape') {
+          this.cancelPlaceStructure();
+          this.deselectAll();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        this.keys[e.key.toLowerCase()] = false;
+      });
+
+      // Mouse controls
+      this.canvas.addEventListener('mousedown', (e) => {
+        audio.init();
+        if (e.button === 0) {
+          // Left click: Start Drag Selection or Structure Placement
+          if (this.placingStructureType) {
+            const worldPos = this.getMouseWorldPos(e);
+            if (worldPos) this.confirmPlaceStructure(worldPos);
+            return;
+          }
+
+          this.isMouseDown = true;
+          this.dragStart = { x: e.clientX, y: e.clientY };
+          this.isDragging = false;
+        } else if (e.button === 2) {
+          // Right click: Move / Attack Order
+          e.preventDefault();
+          if (this.placingStructureType) {
+            this.cancelPlaceStructure();
+            return;
+          }
+          this.handleRightClickOrder(e);
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        // Structure placement preview
+        if (this.placingStructureType && this.previewBuildingMesh) {
+          const worldPos = this.getMouseWorldPos(e);
+          if (worldPos) this.previewBuildingMesh.position.copy(worldPos);
+        }
+
+        // Marquee selection drag
+        if (this.isMouseDown) {
+          const dx = Math.abs(e.clientX - this.dragStart.x);
+          const dy = Math.abs(e.clientY - this.dragStart.y);
+
+          if (dx > 6 || dy > 6) {
+            this.isDragging = true;
+            this.ui.marqueeElem.style.display = 'block';
+            const left = Math.min(e.clientX, this.dragStart.x);
+            const top = Math.min(e.clientY, this.dragStart.y);
+            const width = Math.abs(e.clientX - this.dragStart.x);
+            const height = Math.abs(e.clientY - this.dragStart.y);
+
+            this.ui.marqueeElem.style.left = `${left}px`;
+            this.ui.marqueeElem.style.top = `${top}px`;
+            this.ui.marqueeElem.style.width = `${width}px`;
+            this.ui.marqueeElem.style.height = `${height}px`;
+          }
+        }
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (e.button === 0 && this.isMouseDown) {
+          this.isMouseDown = false;
+          this.ui.marqueeElem.style.display = 'none';
+
+          if (this.isDragging) {
+            // Box Marquee Selection
+            this.handleBoxSelection(this.dragStart, { x: e.clientX, y: e.clientY }, e.shiftKey);
+          } else {
+            // Single Click Unit / Enemy Selection
+            this.handleSingleClickSelect(e, e.shiftKey);
+          }
+          this.isDragging = false;
+        }
+      });
+
+      // Context menu prevent
+      this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // Mouse wheel zoom
+      this.canvas.addEventListener('wheel', (e) => {
+        const zoomDelta = e.deltaY * 0.05;
+        this.cameraOffset.y = Math.max(16, Math.min(50, this.cameraOffset.y + zoomDelta));
+        this.cameraOffset.z = Math.max(14, Math.min(45, this.cameraOffset.z + zoomDelta * 0.85));
+        this.updateCameraPos();
+      });
+
+      // Mobile Touch Gestures & Commands
+      let touchStartDist = 0;
+      let touchStartPos = { x: 0, y: 0 };
+      let touchStartTime = 0;
+
+      this.canvas.addEventListener('touchstart', (e) => {
+        audio.init();
+        touchStartTime = Date.now();
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          touchStartPos = { x: touch.clientX, y: touch.clientY };
+          this.isMouseDown = true;
+          this.dragStart = { x: touch.clientX, y: touch.clientY };
+        } else if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          touchStartDist = Math.hypot(dx, dy);
+        }
+      }, { passive: false });
+
+      this.canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          const touch = e.touches[0];
+          const dx = touch.clientX - touchStartPos.x;
+          const dy = touch.clientY - touchStartPos.y;
+          if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
+            this.cameraTarget.x -= dx * 0.06;
+            this.cameraTarget.z -= dy * 0.06;
+            touchStartPos = { x: touch.clientX, y: touch.clientY };
+            this.updateCameraPos();
+          }
+        } else if (e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          const zoomDiff = (touchStartDist - dist) * 0.08;
+          this.cameraOffset.y = Math.max(16, Math.min(50, this.cameraOffset.y + zoomDiff));
+          this.cameraOffset.z = Math.max(14, Math.min(45, this.cameraOffset.z + zoomDiff * 0.85));
+          touchStartDist = dist;
+          this.updateCameraPos();
+        }
+      }, { passive: false });
+
+      this.canvas.addEventListener('touchend', (e) => {
+        const touchDuration = Date.now() - touchStartTime;
+        if (touchDuration < 350 && e.changedTouches.length > 0) {
+          const touch = e.changedTouches[0];
+          const fakeEvent = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            shiftKey: false,
+            preventDefault: () => {}
+          };
+          if (this.placingStructureType) {
+            const worldPos = this.getMouseWorldPos(fakeEvent);
+            if (worldPos) this.confirmPlaceStructure(worldPos);
+          } else if (this.selectedUnits.length > 0) {
+            this.handleRightClickOrder(fakeEvent);
+          } else {
+            this.handleSingleClickSelect(fakeEvent, false);
+          }
+        }
+        this.isMouseDown = false;
+      }, { passive: false });
+    }
+
+    getMouseWorldPos(e) {
+      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const target = new THREE.Vector3();
+      const hit = this.raycaster.ray.intersectPlane(this.groundPlane, target);
+      return hit ? target : null;
+    }
+
+    toScreenCoords(worldPos) {
+      const v = worldPos.clone();
+      v.project(this.camera);
+      if (v.z > 1) return null; // Behind camera
+      const x = (v.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-(v.y * 0.5) + 0.5) * window.innerHeight;
+      return { x, y };
+    }
+
+    handleSingleClickSelect(e, isShift) {
+      const worldPos = this.getMouseWorldPos(e);
+      if (!worldPos) return;
+
+      // Check click on player unit
+      let clickedUnit = null;
+      let minDist = 2.0;
+
+      for (const u of this.playerUnits) {
+        if (u.dead) continue;
+        const d = u.pos.distanceTo(worldPos);
+        if (d < minDist) {
+          minDist = d;
+          clickedUnit = u;
+        }
+      }
+
+      if (clickedUnit) {
+        if (!isShift) this.deselectAll();
+        clickedUnit.setSelected(true);
+        if (!this.selectedUnits.includes(clickedUnit)) {
+          this.selectedUnits.push(clickedUnit);
+        }
+        audio.playSelect();
+      } else {
+        if (!isShift) this.deselectAll();
+      }
+
+      this.ui.updateSelectionPanel(this.selectedUnits);
+    }
+
+    handleBoxSelection(start, end, isShift) {
+      if (!isShift) this.deselectAll();
+
+      const minX = Math.min(start.x, end.x);
+      const maxX = Math.max(start.x, end.x);
+      const minY = Math.min(start.y, end.y);
+      const maxY = Math.max(start.y, end.y);
+
+      for (const u of this.playerUnits) {
+        if (u.dead) continue;
+        const screenPos = this.toScreenCoords(u.pos);
+        if (!screenPos) continue;
+
+        if (screenPos.x >= minX && screenPos.x <= maxX && screenPos.y >= minY && screenPos.y <= maxY) {
+          u.setSelected(true);
+          if (!this.selectedUnits.includes(u)) {
+            this.selectedUnits.push(u);
+          }
+        }
+      }
+
+      if (this.selectedUnits.length > 0) audio.playSelect();
+      this.ui.updateSelectionPanel(this.selectedUnits);
+    }
+
+    handleRightClickOrder(e) {
+      if (this.selectedUnits.length === 0) return;
+
+      const worldPos = this.getMouseWorldPos(e);
+      if (!worldPos) return;
+
+      // 1. Check if clicked an Enemy Unit
+      let clickedEnemy = null;
+      let minDist = 2.5;
+      for (const enemy of this.enemyUnits) {
+        if (enemy.dead) continue;
+        const d = enemy.pos.distanceTo(worldPos);
+        if (d < minDist) {
+          minDist = d;
+          clickedEnemy = enemy;
+        }
+      }
+
+      if (clickedEnemy) {
+        // Focus fire attack order
+        this.selectedUnits.forEach(u => u.setTargetEnemy(clickedEnemy));
+        this.particles.emitShockwave(clickedEnemy.pos, 0xef4444, 2.5);
+        audio.playOrder();
+        return;
+      }
+
+      // 2. Move to destination with Formation Slots
+      audio.playOrder();
+      this.particles.emitShockwave(worldPos, 0x38bdf8, 2.0);
+
+      const slots = this.calculateFormationSlots(worldPos, this.selectedUnits.length);
+      this.selectedUnits.forEach((u, idx) => {
+        const dest = slots[idx] || worldPos;
+        u.setDestination(dest);
+      });
+    }
+
+    calculateFormationSlots(centerPos, count) {
+      const slots = [];
+      const spacing = 2.2;
+
+      if (this.formation === 'line') {
+        const half = (count - 1) / 2;
+        for (let i = 0; i < count; i++) {
+          slots.push(new THREE.Vector3(
+            centerPos.x + (i - half) * spacing,
+            0,
+            centerPos.z
+          ));
+        }
+      } else if (this.formation === 'wedge') {
+        slots.push(centerPos.clone());
+        for (let i = 1; i < count; i++) {
+          const row = Math.ceil(i / 2);
+          const sign = (i % 2 === 1) ? -1 : 1;
+          slots.push(new THREE.Vector3(
+            centerPos.x + sign * row * spacing * 0.9,
+            0,
+            centerPos.z + row * spacing
+          ));
+        }
+      } else {
+        // Scatter / Circle
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          slots.push(new THREE.Vector3(
+            centerPos.x + Math.cos(angle) * spacing * 1.4,
+            0,
+            centerPos.z + Math.sin(angle) * spacing * 1.4
+          ));
+        }
+      }
+      return slots;
+    }
+
+    cycleFormation() {
+      if (this.formation === 'line') this.formation = 'wedge';
+      else if (this.formation === 'wedge') this.formation = 'scatter';
+      else this.formation = 'line';
+
+      const labelMap = { line: 'Línea [F]', wedge: 'Cuña [F]', scatter: 'Dispersa [F]' };
+      document.getElementById('formation-label').innerText = labelMap[this.formation];
+      audio.playSelect();
+    }
+
+    selectAllUnits() {
+      this.deselectAll();
+      this.playerUnits.forEach(u => {
+        if (!u.dead) {
+          u.setSelected(true);
+          this.selectedUnits.push(u);
+        }
+      });
+      audio.playSelect();
+      this.ui.updateSelectionPanel(this.selectedUnits);
+    }
+
+    deselectAll() {
+      this.selectedUnits.forEach(u => u.setSelected(false));
+      this.selectedUnits = [];
+      this.ui.updateSelectionPanel(this.selectedUnits);
+    }
+
+    stopSelectedUnits() {
+      this.selectedUnits.forEach(u => {
+        u.state = 'idle';
+        u.targetEnemy = null;
+        u.targetPos.copy(u.pos);
+      });
+      audio.playSelect();
+    }
+
+    setAttackMoveMode() {
+      this.formationStance = this.formationStance === 'aggressive' ? 'defensive' : 'aggressive';
+      const isAgg = this.formationStance === 'aggressive';
+      this.ui.showFloatingText(
+        this.cameraTarget.clone().setY(3.0),
+        `MODO: ${isAgg ? 'ATACAR Y AVANZAR' : 'MANTENER LÍNEA'}`,
+        isAgg ? '#ef4444' : '#38bdf8'
+      );
+      audio.playSelect();
+    }
+
+    centerCameraOnVillage() {
+      this.cameraTarget.set(CONFIG.VILLAGE_POS.x, 0, CONFIG.VILLAGE_POS.z);
+    }
+
+    updateCameraPos() {
+      this.camera.position.set(
+        this.cameraTarget.x + this.cameraOffset.x,
+        this.cameraOffset.y,
+        this.cameraTarget.z + this.cameraOffset.z
+      );
+      this.camera.lookAt(this.cameraTarget);
+    }
+
+    onGameOver(isVictory) {
+      const modal = document.getElementById('modal-gameover');
+      const title = document.getElementById('end-title');
+      const subtitle = document.getElementById('end-subtitle');
+      const icon = document.getElementById('end-icon');
+      const iconBox = document.getElementById('end-icon-box');
+      const endlessBtn = document.getElementById('btn-endless-mode');
+
+      document.getElementById('end-stat-wave').innerText = `${this.waveManager.currentWave} / 10`;
+      document.getElementById('end-stat-kills').innerText = `${this.kills}`;
+      document.getElementById('end-stat-score').innerText = `${Math.round(this.score)}`;
+
+      if (isVictory) {
+        audio.playVictory();
+        title.innerText = '¡VICTORIA GLORIOSA!';
+        subtitle.innerText = '¡Has repelido todas las invasiones y asegurado el futuro del Reino!';
+        title.className = 'font-medieval text-3xl md:text-4xl font-black text-amber-300 mb-2';
+        icon.className = 'fa-solid fa-crown';
+        iconBox.className = 'w-20 h-20 mx-auto rounded-3xl bg-amber-600/30 border border-amber-500 flex items-center justify-center text-amber-400 text-4xl mb-4 pulse-glow';
+        endlessBtn.classList.remove('hidden');
+      } else {
+        audio.playDefeat();
+        title.innerText = '¡LA ALDEA HA CAÍDO!';
+        subtitle.innerText = 'El Castillo fue destruido. Las tropas restantes han sido dispersadas.';
+        icon.className = 'fa-solid fa-skull-crossbones';
+        iconBox.className = 'w-20 h-20 mx-auto rounded-3xl bg-red-600/30 border border-red-500 flex items-center justify-center text-red-400 text-4xl mb-4';
+        endlessBtn.classList.add('hidden');
+      }
+      modal.classList.remove('hidden');
+    }
+
+    animate() {
+      requestAnimationFrame(this.animate);
+
+      const rawDt = this.clock.getDelta();
+      const dt = Math.min(rawDt, 0.1) * this.gameSpeed;
+
+      // 1. Camera Pan Keyboard Inputs (WASD / Arrows)
+      const panSpeed = 38 * dt;
+      if (this.keys['w'] || this.keys['arrowup']) this.cameraTarget.z -= panSpeed;
+      if (this.keys['s'] || this.keys['arrowdown']) this.cameraTarget.z += panSpeed;
+      if (this.keys['a'] || this.keys['arrowleft']) this.cameraTarget.x -= panSpeed;
+      if (this.keys['d'] || this.keys['arrowright']) this.cameraTarget.x += panSpeed;
+
+      // Clamp camera target inside map boundaries
+      const mapLimit = CONFIG.MAP_SIZE * 0.42;
+      this.cameraTarget.x = Math.max(-mapLimit, Math.min(mapLimit, this.cameraTarget.x));
+      this.cameraTarget.z = Math.max(-mapLimit, Math.min(mapLimit, this.cameraTarget.z));
+      this.updateCameraPos();
+
+      // 2. Passive Resources & Mana Regen
+      this.gold += dt * 3.5 * this.techTree.ecoMult;
+      this.wood += dt * 1.5;
+      if (this.mana < this.maxMana) {
+        this.mana = Math.min(this.maxMana, this.mana + dt * 2.5 * (1 + this.techTree.manaLvl * 0.4));
+      }
+      this.ui.updateHUD();
+
+      // 3. Environmental Animations (Windmill blades rotate)
+      if (this.windmillMesh) {
+        const blades = this.windmillMesh.getObjectByName('windmillBlades');
+        if (blades) blades.rotation.z += dt * 1.8;
+      }
+
+      // 4. Update Wave Spawners
+      this.waveManager.update(dt);
+
+      // 5. Update Units
+      for (let i = this.playerUnits.length - 1; i >= 0; i--) {
+        const u = this.playerUnits[i];
+        u.update(dt);
+        if (u.dead && (!u.deathUpdate || u.mesh.parent === null)) {
+          this.playerUnits.splice(i, 1);
+          const selIdx = this.selectedUnits.indexOf(u);
+          if (selIdx !== -1) this.selectedUnits.splice(selIdx, 1);
+          this.ui.updateSelectionPanel(this.selectedUnits);
+        }
+      }
+
+      for (let i = this.enemyUnits.length - 1; i >= 0; i--) {
+        const e = this.enemyUnits[i];
+        e.update(dt);
+        if (e.dead && (!e.deathUpdate || e.mesh.parent === null)) {
+          this.enemyUnits.splice(i, 1);
+        }
+      }
+
+      // 6. Update Buildings & Defense Towers
+      for (let i = this.buildings.length - 1; i >= 0; i--) {
+        const b = this.buildings[i];
+        b.update(dt);
+        if (b.dead && b.type !== 'village') {
+          this.buildings.splice(i, 1);
+        }
+      }
+
+      // 7. Update Projectiles
+      for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        const p = this.projectiles[i];
+        p.update(dt);
+        if (p.dead) {
+          this.projectiles.splice(i, 1);
+        }
+      }
+
+      // 8. Update 3D Particles
+      this.particles.update(dt);
+
+      // 9. Update UI Minimap & Selection Card
+      this.ui.renderMinimap();
+      if (this.selectedUnits.length > 0) {
+        this.ui.updateSelectionPanel(this.selectedUnits);
+      }
+
+      // 10. Three.js Render Frame
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+
+  // --- START GAME ENGINE ON LOAD ---
+  window.addEventListener('DOMContentLoaded', () => {
+    window.game = new StrategyGame();
+  });
+  </script>
+</body>
+</html>

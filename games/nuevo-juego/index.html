@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motor de Juego 3D - Esqueleto Base</title>
+  <meta name="description" content="Esqueleto base modular en 3D utilizando Three.js y Vite.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-C0FW_PXw.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-hGdS4-GF.css">
+</head>
+<body>
+  <div id="ui-container">
+    <div class="card">
+      <h1>Motor de Juego 3D</h1>
+      <p class="subtitle">Esqueleto Base Inicial</p>
+      <div class="status-indicator">
+        <span class="dot"></span>
+        <span class="status-text">Listo para programar</span>
+      </div>
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-label">Plano:</span>
+          <span class="stat-value">200x200 px</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Motor:</span>
+          <span class="stat-value">Three.js</span>
+        </div>
+      </div>
+      <div class="stats" style="margin-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 12px;">
+        <div class="stat-item">
+          <span class="stat-label">Jugador X:</span>
+          <span id="pos-x" class="stat-value">0.00</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Jugador Z:</span>
+          <span id="pos-z" class="stat-value">0.00</span>
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 0.75rem; color: #9ca3af; line-height: 1.4;">
+        <p style="font-weight: 600; margin-bottom: 4px; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;">Controles</p>
+        <p>🖮 WASD / Flechas para Mover</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capa UI para Barras de Enemigos Flotantes -->
+  <div id="enemy-ui-layer"></div>
+
+  <!-- UI de Combate Inferior (Vida y Maná) -->
+  <div id="combat-ui">
+    <div class="stat-container">
+      <span class="stat-title">VIDA</span>
+      <div class="bar-bg">
+        <div id="player-hp-bar" class="bar-fill hp-fill"></div>
+      </div>
+      <span id="player-hp-text" class="stat-text">100 / 100</span>
+    </div>
+    
+    <div class="stat-container">
+      <span class="stat-title" style="color: #60a5fa;">ENERGÍA</span>
+      <div class="bar-bg">
+        <div id="player-mp-bar" class="bar-fill mp-fill"></div>
+      </div>
+      <span id="player-mp-text" class="stat-text">50 / 50</span>
+    </div>
+  </div>
+
+  <!-- INVENTARIO COMPLEX UI (DIABLO 2 STYLE) -->
+  <div id="inventory-modal" class="hidden">
+    <div class="inv-header">
+      <h2>Estadísticas y Equipamiento</h2>
+      <button id="close-inv-btn">X</button>
+    </div>
+    
+    <div class="inv-body">
+      <!-- Diablo 2 Paperdoll (Izquierda) -->
+      <div class="d2-paperdoll">
+        <div class="d2-slot empty" id="slot-head" data-slot="head" style="top: 5%; left: 50%; transform: translateX(-50%);"><span>Casco</span></div>
+        <div class="d2-slot empty" id="slot-weapon" data-slot="weapon" style="top: 30%; left: 10%;"><span>Arma Principal</span></div>
+        <div class="d2-slot empty" id="slot-chest" data-slot="chest" style="top: 30%; left: 50%; transform: translateX(-50%); width: 80px; height: 100px;"><span>Armadura</span></div>
+        <div class="d2-slot empty" id="slot-shield" data-slot="shield" style="top: 30%; right: 10%;"><span>Mano Sec.</span></div>
+        <div class="d2-slot empty" id="slot-ring" data-slot="ring" style="top: 65%; left: 25%; width: 50px; height: 50px;"><span>Anillo</span></div>
+        <div class="d2-slot empty" id="slot-legs" data-slot="legs" style="top: 65%; left: 50%; transform: translateX(-50%);"><span>Pantalón</span></div>
+        <div class="d2-slot empty" id="slot-boots" data-slot="boots" style="top: 85%; left: 50%; transform: translateX(-50%);"><span>Botas</span></div>
+        
+        <!-- Stats embedded in paperdoll left panel -->
+        <div class="d2-stats">
+          <p>Daño: <span id="stat-dmg">10</span></p>
+          <p>Defensa: <span id="stat-def">0</span></p>
+          <p>Poder: <span id="stat-element" style="color: #a855f7">Físico</span></p>
+        </div>
+      </div>
+      
+      <!-- Mochila Diablo 2 (Derecha) -->
+      <div class="d2-backpack-container">
+        <div class="d2-backpack-title">Mochila</div>
+        <div class="inv-backpack" id="inv-grid">
+          <!-- Ítems dinámicos -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROMPT DE RECOLECCIÓN -->
+  <div id="pickup-prompt" class="hidden">
+    Presiona <span class="key-hint">E</span> para recoger <span id="pickup-item-name" style="color: #c8a165"></span>
+  </div>
+
+  <canvas id="game-canvas"></canvas>
+</body>
+</html>
