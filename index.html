@@ -267,6 +267,8 @@
     .tag-runner { background: rgba(108, 92, 231, 0.15); color: #6c5ce7; }
     .tag-3d { background: rgba(255, 255, 255, 0.08); color: #aab; }
     .tag-multiplayer { background: rgba(0, 206, 209, 0.15); color: #00ced1; }
+    .tag-multi { background: rgba(0, 206, 209, 0.15); color: #00ced1; }
+    .tag-adventure { background: rgba(39, 174, 96, 0.15); color: #27ae60; }
 
     .card-title {
       font-size: 1.15rem;
@@ -358,6 +360,13 @@
     .game-card:nth-child(9) { animation-delay: 0.45s; }
     .game-card:nth-child(10) { animation-delay: 0.5s; }
     .game-card:nth-child(11) { animation-delay: 0.55s; }
+    .game-card:nth-child(12) { animation-delay: 0.6s; }
+    .game-card:nth-child(13) { animation-delay: 0.65s; }
+    .game-card:nth-child(14) { animation-delay: 0.7s; }
+    .game-card:nth-child(11) { animation-delay: 0.55s; }
+    .game-card:nth-child(12) { animation-delay: 0.6s; }
+    .game-card:nth-child(13) { animation-delay: 0.65s; }
+    .game-card:nth-child(14) { animation-delay: 0.7s; }
 
     @keyframes fadeInUp {
       to { opacity: 1; transform: translateY(0); }
@@ -380,7 +389,7 @@
     </p>
     <div class="stats">
       <div class="stat">
-        <div class="stat-num">12</div>
+        <div class="stat-num">29</div>
         <div class="stat-label">Juegos</div>
       </div>
       <div class="stat">
@@ -400,6 +409,8 @@
     <button class="filter-btn" data-filter="strategy">Estrategia</button>
     <button class="filter-btn" data-filter="rpg">RPG</button>
     <button class="filter-btn" data-filter="racing">Carreras</button>
+    <button class="filter-btn" data-filter="adventure">Aventura</button>
+    <button class="filter-btn" data-filter="multiplayer">Multijugador</button>
   </div>
 
   <div class="games-grid" id="games-grid">
@@ -613,6 +624,44 @@
       </div>
     </a>
 
+    <a href="games/drone-scape/drone_scape_webpage.html" class="game-card" data-category="action">
+      <div class="card-preview">
+        <div class="glow" style="background: #e67e22;"></div>
+        <span class="icon">🛸</span>
+      </div>
+      <div class="card-body">
+        <div class="card-tags">
+          <span class="tag tag-runner">Runner</span>
+          <span class="tag tag-action">2D</span>
+        </div>
+        <div class="card-title">DRONE SCAPE</div>
+        <div class="card-desc">Sobrevive en la ciudad post-apocalíptica. Esquivá edificios en ruinas con tu dron y alcanzá la puntuación más alta.</div>
+        <div class="card-footer">
+          <span class="play-btn">Jugar <span class="arrow">→</span></span>
+          <span class="tech-stack">HTML5 + Canvas</span>
+        </div>
+      </div>
+    </a>
+
+    <a href="games/sapo-del-monte/index.html" class="game-card" data-category="adventure">
+      <div class="card-preview">
+        <div class="glow" style="background: #27ae60;"></div>
+        <span class="icon">🐸</span>
+      </div>
+      <div class="card-body">
+        <div class="card-tags">
+          <span class="tag tag-rpg">Aventura</span>
+          <span class="tag tag-3d">3D</span>
+        </div>
+        <div class="card-title">SAPO DEL MONTE</div>
+        <div class="card-desc">Aventura 3D en el Monte Chaqueño. Ayudá a los animales del monte, mantén tu humedad y escapá de la Lechuza Vizcachera.</div>
+        <div class="card-footer">
+          <span class="play-btn">Jugar <span class="arrow">→</span></span>
+          <span class="tech-stack">Three.js</span>
+        </div>
+      </div>
+    </a>
+
     <a href="games/3drpg/index.html" class="game-card" data-category="rpg">
       <div class="card-preview">
         <div class="glow" style="background: #a29bfe;"></div>
@@ -634,8 +683,209 @@
 
   </div>
 
+    <!-- === NUEVOS JUEGOS === -->
+    <a href="games/ant-action-rpg-game/index.html" class="game-card" data-category="action">
+      <div class="card-preview"><div class="glow" style="background: #e84393;"></div><span class="icon">🐜</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-action">Acción</span><span class="tag tag-3d">Arena</span></div>
+        <div class="card-title">ANT BLADE</div>
+        <div class="card-desc">Action arena donde controlás una hormiga guerrera. Combate intenso con armas y enemigos.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-insect-combat-game/index.html" class="game-card" data-category="action">
+      <div class="card-preview"><div class="glow" style="background: #00b894;"></div><span class="icon">🐛</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-action">Combate</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">SLUG HUNTER</div>
+        <div class="card-desc">Monster Hunter de insectos. Cazá babosas gigantes y criaturas del bosque con habilidades únicas.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/cooperative-tactical-stealth-raid/index.html" class="game-card" data-category="multiplayer">
+      <div class="card-preview"><div class="glow" style="background: #636e72;"></div><span class="icon">🕵️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">Cooperativo</span><span class="tag tag-action">Sigilo</span></div>
+        <div class="card-title">PROTOCOLO FANTASMA</div>
+        <div class="card-desc">Incursión y sigilo táctico cooperativo. Sincronizá terminales, desactivá barreras láser y escapá con el botín.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">React + Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-multiplayer-aura-game/index.html" class="game-card" data-category="multiplayer">
+      <div class="card-preview"><div class="glow" style="background: #a29bfe;"></div><span class="icon">✨</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">1v1</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">AURA FARM MULTIPLAYER</div>
+        <div class="card-desc">Combate 1v1 con farmeo de aura. Derrotá rivales, coleccioná aura y volvé más fuerte.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/3d-math-time-machine-game/index.html" class="game-card" data-category="rpg">
+      <div class="card-preview"><div class="glow" style="background: #fdcb6e;"></div><span class="icon">⏰</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-rpg">RPG</span><span class="tag tag-strategy">Puzzle</span></div>
+        <div class="card-title">CRONONAUTAS</div>
+        <div class="card-desc">Máquina del tiempo matemática. Viajá en el tiempo resolviendo problemas de matemáticas.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">HTML5</span></div>
+      </div>
+    </a>
+
+    <a href="games/3d-math-time-travel-game/index.html" class="game-card" data-category="rpg">
+      <div class="card-preview"><div class="glow" style="background: #0984e3;"></div><span class="icon">🌐</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-rpg">RPG</span><span class="tag tag-strategy">Academia</span></div>
+        <div class="card-title">CHRONOS-3000</div>
+        <div class="card-desc">Academia temporal. Aventura educativa de viajes en el tiempo con desafíos matemáticos.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">HTML5</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-math-time-machine/index.html" class="game-card" data-category="rpg">
+      <div class="card-preview"><div class="glow" style="background: #e17055;"></div><span class="icon">🦕</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-rpg">RPG</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">CRONONAUTAS 3D</div>
+        <div class="card-desc">Versión 3D de la máquina del tiempo matemática. Explorá mundos históricos resolviendo ecuaciones.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/armadillo-meets-forest-frog/index.html" class="game-card" data-category="adventure">
+      <div class="card-preview"><div class="glow" style="background: #00cec9;"></div><span class="icon">🦔</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-rpg">Aventura</span><span class="tag tag-action">Cinematográfico</span></div>
+        <div class="card-title">TATÚ CARRETA</div>
+        <div class="card-desc">Una fábula del bosque en cinco actos. Historia interactiva con un tatú y un sapo del monte.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/isometric-mantis-defense-game/index.html" class="game-card" data-category="strategy">
+      <div class="card-preview"><div class="glow" style="background: #55a630;"></div><span class="icon">🦗</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-strategy">Defensa</span><span class="tag tag-3d">Isométrico</span></div>
+        <div class="card-title">MANTIS — GUARDIÁN DEL NIDO</div>
+        <div class="card-desc">Defendé tu nido de mantis religiosa contra oleadas de insectos depredadores.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">React + Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-mantis-defense-game/index.html" class="game-card" data-category="strategy">
+      <div class="card-preview"><div class="glow" style="background: #2d6a4f;"></div><span class="icon">🪲</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-strategy">Survival</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">MANTIS GUARDIAN 3D</div>
+        <div class="card-desc">Survival action 3D. Defendé el nido con movimientos de mantis religiosa en un mundo 3D.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-25d-army-defense/index.html" class="game-card" data-category="strategy">
+      <div class="card-preview"><div class="glow" style="background: #2d3436;"></div><span class="icon">⚔️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-strategy">RTS</span><span class="tag tag-3d">2.5D</span></div>
+        <div class="card-title">GUARDIANES DE LA CORONA</div>
+        <div class="card-desc">Defensa de aldea 2.5D con Three.js. Estrategia y tropas para proteger tu reino.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-25d-soldier-game/index.html" class="game-card" data-category="action">
+      <div class="card-preview"><div class="glow" style="background: #e74c3c;"></div><span class="icon">🎖️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-action">Oleadas</span><span class="tag tag-3d">2.5D</span></div>
+        <div class="card-title">CYBER SOLDIER: ONSLAUGHT</div>
+        <div class="card-desc">Oleadas de monstruos en 2.5D. Sobreviví con un soldado cibernético y armas futuristas.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/precision-rally-browser-game/index.html" class="game-card" data-category="racing">
+      <div class="card-preview"><div class="glow" style="background: #e67e22;"></div><span class="icon">🏁</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-racing">Rally</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">APEX RALLY</div>
+        <div class="card-desc">Precision Stage Championship. Rally de precisión con física arcade en etapas desafiantes.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">React + Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-cartoon-toad-function/index.html" class="game-card" data-category="adventure">
+      <div class="card-preview"><div class="glow" style="background: #00b894;"></div><span class="icon">🐸</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-rpg">Aventura</span><span class="tag tag-3d">3D</span></div>
+        <div class="card-title">EL SAPO CARTOON 3D</div>
+        <div class="card-desc">Modelo 3D interactivo de un sapo cartoon creado con primitivas de Three.js.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-toad-model-function/index.html" class="game-card" data-category="adventure">
+      <div class="card-preview"><div class="glow" style="background: #6c5ce7;"></div><span class="icon">🧬</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-3d">Modelo 3D</span><span class="tag tag-rpg">Función</span></div>
+        <div class="card-title">crearSapo()</div>
+        <div class="card-desc">Función Three.js que genera un sapo 3D proceduralmente con primitivas geométricas.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-yacar-model-function/index.html" class="game-card" data-category="adventure">
+      <div class="card-preview"><div class="glow" style="background: #00b894;"></div><span class="icon">🐊</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-3d">Modelo 3D</span><span class="tag tag-rpg">Función</span></div>
+        <div class="card-title">YACARÉ 3D</div>
+        <div class="card-desc">Función crearyacaré() en Three.js con primitivas. Modelo procedural de yacaré argentino.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Three.js</span></div>
+      </div>
+    </a>
+
   <footer>
     <p>Construido con <a href="https://threejs.org" target="_blank">Three.js</a> y WebGL &nbsp;•&nbsp; 2026</p>
+    <a href="games/cooperative-25d-isometric-rpg/index.html" class="game-card" data-category="multijugador">
+      <div class="card-preview"><div class="glow" style="background: #f59e0b;"></div><span class="icon">⚔️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">Multijugador</span><span class="tag tag-rpg">RPG</span></div>
+        <div class="card-title">Expedición de Bruma</div>
+        <div class="card-desc">RPG isométrico 2.5D cooperativo. 4 clases, mapa procedural, 8 misiones y 14 tipos de enemigos.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Canvas 2D</span></div>
+      </div>
+    </a>
+
+    <a href="games/cooperative-mars-survival-game/index.html" class="game-card" data-category="multijugador">
+      <div class="card-preview"><div class="glow" style="background: #ff6600;"></div><span class="icon">🔴</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">Multijugador</span><span class="tag tag-action">Supervivencia</span></div>
+        <div class="card-title">Mars Survival</div>
+        <div class="card-desc">Supervivencia cooperativa en Marte. Gestiona recursos, construye estructuras y carga la baliza.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Canvas 2D</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-cooperative-strategy-rpg/index.html" class="game-card" data-category="multijugador">
+      <div class="card-preview"><div class="glow" style="background: #a855f7;"></div><span class="icon">🗡️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">Multijugador</span><span class="tag tag-rpg">Estrategia</span></div>
+        <div class="card-title">Strategy RPG</div>
+        <div class="card-desc">Táctico cooperativo por turnos. 4 héroes, sinergias, habilidades y combate en grilla.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Canvas 2D</span></div>
+      </div>
+    </a>
+
+    <a href="games/threejs-isometric-cooperative-rpg/index.html" class="game-card" data-category="multijugador">
+      <div class="card-preview"><div class="glow" style="background: #4ade80;"></div><span class="icon">🌲</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multiplayer">Multijugador</span><span class="tag tag-rpg">RPG</span></div>
+        <div class="card-title">Isometric RPG</div>
+        <div class="card-desc">Táctico isométrico cooperativo. 3 misiones, héroes con habilidades y enemigos inteligentes.</div>
+        <div class="card-footer"><span class="play-btn">Jugar <span class="arrow">→</span></span><span class="tech-stack">Canvas 2D</span></div>
+      </div>
+    </a>
+
   </footer>
 
 </div>

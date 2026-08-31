@@ -1,0 +1,848 @@
+<!-- optimizado por mock executor (tarea 2) -->
+<!-- optimizado por mock executor (tarea 1) -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>crearSapo() · Función Three.js</title>
+<meta name="description" content="Una función JavaScript con Three.js que construye y devuelve un sapo 3D hecho solo con primitivas. Sin escena, sin cámara, sin controles." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<style>
+  :root{
+    --bg:#0B140E; --panel:#101D13; --panel2:#0D1810; --line:#233827; --line2:#31503A;
+    --ink:#E9EFDA; --mut:#9AAF92; --dim:#6E8570;
+    --lime:#C6F16A; --lime-soft:#9FE870; --mint:#7FD6B4; --amber:#E4B36B;
+  }
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'Instrument Sans',system-ui,sans-serif;
+    overflow-x:hidden;
+  }
+  .f-display{ font-family:'Bricolage Grotesque','Instrument Sans',sans-serif; }
+  .f-mono{ font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace; }
+  ::selection{ background:var(--lime); color:#14230F; }
+  *{ scrollbar-width:thin; scrollbar-color:#2E4A33 transparent; }
+
+  /* ---- fondo por capas ---- */
+  .ambient{
+    position:fixed; inset:0; z-index:-2;
+    background:
+      radial-gradient(1100px 720px at 85% -12%, rgba(159,232,112,.11), transparent 62%),
+      radial-gradient(900px 640px at -12% 32%, rgba(127,214,180,.08), transparent 58%),
+      radial-gradient(1300px 900px at 50% 118%, rgba(198,241,106,.06), transparent 62%),
+      var(--bg);
+  }
+  .noise{
+    position:fixed; inset:0; z-index:-1; opacity:.05; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ---- tipografía ---- */
+  .kicker{
+    font-family:'JetBrains Mono',monospace; font-size:.68rem; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--mint);
+    display:inline-flex; align-items:center; gap:.8rem;
+  }
+  .kicker::before{ content:""; width:2.2rem; height:1px; background:var(--mint); opacity:.7; }
+  .h-gigante{
+    font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:clamp(2.9rem, 7.2vw, 5.6rem); line-height:.98; letter-spacing:-.025em;
+  }
+  .h-seccion{
+    font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:clamp(1.7rem, 3.4vw, 2.7rem); line-height:1.05; letter-spacing:-.02em;
+  }
+  .cursor{
+    display:inline-block; width:.42em; height:.78em; margin-left:.1em;
+    background:var(--lime); vertical-align:-.06em; animation:parpadeo 1.1s steps(1) infinite;
+  }
+  @keyframes parpadeo{ 50%{ opacity:0; } }
+
+  /* ---- botones ---- */
+  .btn{
+    display:inline-flex; align-items:center; gap:.55rem; cursor:pointer;
+    font-weight:600; font-size:.92rem; padding:.72rem 1.35rem; border-radius:10px;
+    transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, color .18s ease;
+  }
+  .btn:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
+  .btn-lima{ background:var(--lime); color:#14230F; box-shadow:0 6px 22px -8px rgba(198,241,106,.45); }
+  .btn-lima:hover{ transform:translateY(-2px); background:#D9FF7E; box-shadow:0 14px 30px -8px rgba(198,241,106,.5); }
+  .btn-lima:active{ transform:translateY(0); }
+  .btn-fantasma{ border:1px solid var(--line2); color:var(--ink); background:rgba(198,241,106,.03); }
+  .btn-fantasma:hover{ transform:translateY(-2px); border-color:var(--lime); color:var(--lime); }
+  .btn.ok{ background:var(--mint); }
+
+  /* ---- escenario ---- */
+  .stage{ position:relative; }
+  .ringo{
+    position:absolute; top:50%; left:50%; width:var(--s); height:var(--s);
+    margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+    border:1px solid rgba(159,232,112,.30); border-radius:50%;
+    animation:onda 5.5s linear infinite; animation-delay:var(--d);
+    pointer-events:none;
+  }
+  @keyframes onda{
+    0%{ transform:scale(.55); opacity:0; }
+    12%{ opacity:.6; }
+    100%{ transform:scale(1.18); opacity:0; }
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--lime); animation:latido 1.6s ease-in-out infinite; }
+  @keyframes latido{ 50%{ opacity:.25; transform:scale(.7); } }
+  .croac{
+    position:absolute; font-family:'Bricolage Grotesque',sans-serif; font-weight:800;
+    font-size:clamp(1.3rem, 2.4vw, 2rem); color:var(--lime);
+    text-shadow:0 2px 18px rgba(198,241,106,.55); transform:rotate(-8deg);
+    animation:croacAnim .95s ease-out forwards; pointer-events:none; white-space:nowrap;
+  }
+  @keyframes croacAnim{
+    0%{ opacity:0; translate:0 10px; scale:.6; }
+    18%{ opacity:1; }
+    100%{ opacity:0; translate:0 -46px; scale:1.15; }
+  }
+
+  /* ---- código ---- */
+  .code-panel{ background:var(--panel2); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .code-scroll{ overflow:auto; max-height:660px; padding:1.4rem 1.6rem; }
+  pre.code{
+    font-family:'JetBrains Mono',monospace; font-size:12.6px; line-height:1.68;
+    tab-size:2; white-space:pre; color:#CFE0C2;
+  }
+  .tk-kw{ color:var(--lime); }
+  .tk-str{ color:var(--amber); }
+  .tk-num{ color:#8FD3C7; }
+  .tk-com{ color:#5C7360; font-style:italic; }
+  .tk-cls{ color:#A9DC76; }
+  .tk-fn{ color:#F0E39B; }
+
+  /* ---- ganchos ---- */
+  .chip{
+    border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:1rem 1.15rem;
+    transition:transform .2s ease, border-color .2s ease, background .2s ease;
+  }
+  .chip:hover{ transform:translateY(-3px); border-color:var(--lime); background:#132417; }
+  .chip code{ font-family:'JetBrains Mono',monospace; font-size:.82rem; color:var(--lime); }
+  .chip p{ margin-top:.35rem; font-size:.86rem; color:var(--mut); line-height:1.5; }
+
+  /* ---- aparición al hacer scroll ---- */
+  .reveal{ opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); transition-delay:var(--d, 0s); }
+  .reveal.in{ opacity:1; transform:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    .ringo,.cursor,.dot{ animation:none; }
+    .reveal{ opacity:1; transform:none; transition:none; }
+  }
+</style>
+</head>
+
+<body class="antialiased">
+<div class="ambient"></div>
+<div class="noise"></div>
+
+<!-- ================= CABECERA ================= -->
+<header class="max-w-6xl mx-auto px-5 sm:px-8 pt-6 pb-2 flex items-center justify-between gap-4">
+  <a href="#" class="flex items-center gap-3 group" aria-label="inicio">
+    <svg viewBox="0 0 40 30" class="w-9 h-7 transition-transform duration-300 group-hover:-rotate-6" aria-hidden="true">
+      <ellipse cx="20" cy="19" rx="15" ry="10" fill="#C6F16A"/>
+      <circle cx="12" cy="8" r="5.5" fill="#C6F16A"/><circle cx="28" cy="8" r="5.5" fill="#C6F16A"/>
+      <circle cx="12.5" cy="8" r="2.3" fill="#14230F"/><circle cx="27.5" cy="8" r="2.3" fill="#14230F"/>
+      <path d="M12 21 Q20 26 28 21" stroke="#14230F" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    </svg>
+    <span class="f-mono text-sm tracking-tight">crearSapo<span class="text-[#C6F16A]">()</span></span>
+  </a>
+  <nav class="hidden sm:flex items-center gap-2 f-mono text-[11px]">
+    <span class="px-3 py-1.5 rounded-full border border-[#233827] text-[#9AAF92]">three@0.161</span>
+    <span class="px-3 py-1.5 rounded-full border border-[#233827] text-[#9AAF92]">0 assets externos</span>
+    <span class="px-3 py-1.5 rounded-full border border-[#31503A] text-[#C6F16A]">devuelve THREE.Group</span>
+  </nav>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 sm:px-8">
+
+  <!-- ================= APERTURA: la función + el sapo vivo ================= -->
+  <section class="relative grid lg:grid-cols-[1.04fr_1fr] gap-10 lg:gap-14 items-center pt-12 sm:pt-16 pb-20">
+
+    <!-- silueta de sapo gigante, decorativa -->
+    <svg class="absolute -left-24 -top-10 w-[460px] opacity-[0.05] pointer-events-none hidden md:block" viewBox="0 0 40 30" aria-hidden="true">
+      <ellipse cx="20" cy="19" rx="15" ry="10" fill="none" stroke="#C6F16A" stroke-width=".6"/>
+      <circle cx="12" cy="8" r="5.5" fill="none" stroke="#C6F16A" stroke-width=".6"/>
+      <circle cx="28" cy="8" r="5.5" fill="none" stroke="#C6F16A" stroke-width=".6"/>
+    </svg>
+
+    <div class="relative">
+      <p class="kicker reveal">función · three.js · sin escena ni cámara</p>
+
+      <h1 class="h-gigante mt-5 reveal" style="--d:.06s">
+        crearSapo<span class="text-[#C6F16A]">(</span><span class="text-[#C6F16A]">)</span><span class="cursor" aria-hidden="true"></span>
+      </h1>
+
+      <p class="mt-6 max-w-xl text-[1.02rem] leading-relaxed text-[#B9C9AC] reveal" style="--d:.12s">
+        Una única función que construye un sapo completo —cuerpo regordete, ojos saltones con
+        párpado, saco gular, verrugas del lomo y cuatro patas— usando <strong class="text-[#E9EFDA] font-semibold">solo primitivas de
+        Three.js</strong>. Devuelve un <code class="f-mono text-[0.9em] text-[#C6F16A]">THREE.Group</code> listo para
+        <code class="f-mono text-[0.9em] text-[#C6F16A]">scene.add()</code>. La función viaja sola:
+        la escena, la cámara y la luz que ves aquí son solo de la demo.
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-3 reveal" style="--d:.18s">
+        <button class="btn btn-lima copiar" type="button">
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copiar función</span>
+        </button>
+        <a class="btn btn-fantasma" href="#codigo">
+          <span>Leer el código</span>
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+        </a>
+      </div>
+
+      <dl class="mt-10 grid grid-cols-3 gap-4 max-w-md reveal" style="--d:.24s">
+        <div class="border-l-2 border-[#31503A] pl-3">
+          <dt class="f-mono text-[10px] uppercase tracking-[0.18em] text-[#6E8570]">Devuelve</dt>
+          <dd class="f-display font-bold text-xl text-[#C6F16A] mt-1">1 Group</dd>
+        </div>
+        <div class="border-l-2 border-[#31503A] pl-3">
+          <dt class="f-mono text-[10px] uppercase tracking-[0.18em] text-[#6E8570]">Primitivas</dt>
+          <dd class="f-display font-bold text-xl text-[#E9EFDA] mt-1">≈ <span id="statMallas">60</span></dd>
+        </div>
+        <div class="border-l-2 border-[#31503A] pl-3">
+          <dt class="f-mono text-[10px] uppercase tracking-[0.18em] text-[#6E8570]">Líneas</dt>
+          <dd class="f-display font-bold text-xl text-[#E9EFDA] mt-1"><span id="statLineas">—</span></dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- escenario en vivo -->
+    <div class="stage reveal" style="--d:.15s">
+      <div class="ringo" style="--s:340px; --d:0s"></div>
+      <div class="ringo" style="--s:470px; --d:1.8s"></div>
+      <div class="ringo hidden lg:block" style="--s:620px; --d:3.6s"></div>
+
+      <div class="relative z-10 rounded-[14px] border border-[#233827] bg-[#0D1810] overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)]">
+        <div id="canvasWrap" class="relative aspect-[10/9] sm:aspect-[11/9]">
+          <canvas id="lienzo" class="absolute inset-0 w-full h-full block cursor-pointer" role="img" aria-label="Sapo 3D generado por la función crearSapo, sobre un nenúfar"></canvas>
+          <div id="croacs" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        </div>
+        <div class="flex items-center justify-between gap-3 px-4 py-3 border-t border-[#233827] f-mono text-[11px]">
+          <span class="flex items-center gap-2 text-[#9AAF92]"><span class="dot"></span> demo en vivo · la función no trae escena</span>
+          <span class="text-[#6E8570] hidden sm:inline">clic → salta y croa</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= EL CÓDIGO ================= -->
+  <section id="codigo" class="py-16 sm:py-20 border-t border-[#1B2C1F]">
+    <div class="flex flex-wrap items-end justify-between gap-5 mb-8">
+      <div class="reveal">
+        <p class="kicker">el código</p>
+        <h2 class="h-seccion mt-4">Una función. Un sapo.<br class="hidden sm:block" /> Nada más.</h2>
+      </div>
+      <div class="flex gap-3 reveal" style="--d:.1s">
+        <button class="btn btn-fantasma descargar" type="button">
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <span>crearSapo.js</span>
+        </button>
+        <button class="btn btn-lima copiar" type="button"><span>Copiar</span></button>
+      </div>
+    </div>
+
+    <div class="code-panel reveal" style="--d:.12s">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-[#233827] bg-[#101D13]">
+        <span class="f-mono text-xs text-[#9AAF92]">crearSapo.js <span class="text-[#6E8570]">— exactamente lo que se copia</span></span>
+        <span class="f-mono text-[10px] uppercase tracking-[0.18em] text-[#7FD6B4]">listo para pegar</span>
+      </div>
+      <div class="code-scroll">
+        <pre class="code" id="codigoFuente"><code>// cargando…</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CÓMO USARLA ================= -->
+  <section id="uso" class="py-16 sm:py-20 border-t border-[#1B2C1F]">
+    <div class="mb-10 reveal">
+      <p class="kicker">cómo usarla</p>
+      <h2 class="h-seccion mt-4">Pegar, llamar y a la escena.</h2>
+    </div>
+
+    <div class="grid lg:grid-cols-[1.1fr_1fr] gap-8">
+      <div class="code-panel reveal" style="--d:.08s">
+        <div class="px-5 py-3 border-b border-[#233827] bg-[#101D13]">
+          <span class="f-mono text-xs text-[#9AAF92]">tu-proyecto.js <span class="text-[#6E8570]">— tu propia escena</span></span>
+        </div>
+        <div class="p-6 overflow-auto">
+<pre class="code"><span class="tk-kw">import</span> * <span class="tk-kw">as</span> THREE <span class="tk-kw">from</span> <span class="tk-str">'three'</span>;
+
+<span class="tk-kw">const</span> sapo = <span class="tk-fn">crearSapo</span>();      <span class="tk-com">// ← devuelve un THREE.Group</span>
+sapo.position.y = <span class="tk-num">0</span>;
+escena.<span class="tk-cls">add</span>(sapo);              <span class="tk-com">// tu escena, tu cámara, tus controles</span>
+
+<span class="tk-com">// Ganchos de animación incluidos en el modelo:</span>
+sapo.userData.garganta;  <span class="tk-com">// escálala para croar</span>
+sapo.userData.parpados;  <span class="tk-com">// escala su .y para parpadear</span>
+sapo.userData.cuerpo;    <span class="tk-com">// respira con su escala</span>
+sapo.userData.ojos;      <span class="tk-com">// rótalos para mirar alrededor</span></pre>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-[#9AAF92] leading-relaxed mb-5 reveal" style="--d:.1s">
+          El <code class="f-mono text-[0.9em] text-[#C6F16A]">userData</code> del grupo expone las
+          partes móviles para que las animes sin buscar por el grafo:
+        </p>
+        <ul class="grid sm:grid-cols-2 gap-3">
+          <li class="chip reveal" style="--d:.12s"><code>sapo.userData.cuerpo</code><p>El cuerpo entero: pulsa su escala para respirar.</p></li>
+          <li class="chip reveal" style="--d:.16s"><code>sapo.userData.garganta</code><p>Saco gular: inflándolo y desinflándolo croa.</p></li>
+          <li class="chip reveal" style="--d:.2s"><code>sapo.userData.ojos</code><p>Dos grupos: rótalos y el sapo mira a donde quieras.</p></li>
+          <li class="chip reveal" style="--d:.24s"><code>sapo.userData.parpados</code><p>Sube su escala en Y un instante: parpadeo.</p></li>
+          <li class="chip reveal sm:col-span-2" style="--d:.28s"><code>sapo.userData.boca</code><p>El tubo de la sonrisa, por si quieres abrir la boca.</p></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ================= PIE ================= -->
+<footer class="border-t border-[#1B2C1F]">
+  <div class="max-w-6xl mx-auto px-5 sm:px-8 py-8 flex flex-wrap items-center justify-between gap-4">
+    <p class="f-mono text-xs text-[#6E8570]">crearSapo() · three@0.161 · hecha solo con esferas, cápsulas y tubos</p>
+    <p class="f-mono text-xs text-[#6E8570]">la demo añade escena, cámara y luz — <span class="text-[#9AAF92]">la función no</span></p>
+  </div>
+</footer>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ==================================================================
+   LA ENTREGA — crearSapo()
+   Todo lo que hay dentro de esta función es lo que se copia.
+   No crea escena, no crea cámara, no crea controles:
+   solo construye el modelo y lo devuelve.
+   ================================================================== */
+function crearSapo() {
+  // ------------------------------------------------------------------
+  //  crearSapo()  ·  Sapo 3D construido con primitivas de Three.js
+  //  Devuelve un THREE.Group listo para scene.add(sapo).
+  //  No crea escena, cámara ni controles.
+  //  Requiere:  import * as THREE from 'three';
+  // ------------------------------------------------------------------
+
+  const sapo = new THREE.Group();
+  sapo.name = 'sapo';
+
+  // ---------- Paleta y materiales ----------
+  const piel       = new THREE.MeshStandardMaterial({ color: 0x6e8b3d, roughness: 0.62, metalness: 0.02 }); // verde oliva
+  const pielOscura = new THREE.MeshStandardMaterial({ color: 0x55692e, roughness: 0.78 });                   // verrugas
+  const vientre    = new THREE.MeshStandardMaterial({ color: 0xd9d6a0, roughness: 0.55 });                   // panza y garganta
+  const linea      = new THREE.MeshStandardMaterial({ color: 0x3b3527, roughness: 0.50 });                   // boca y fosas
+  const blanco     = new THREE.MeshStandardMaterial({ color: 0xf4f1e1, roughness: 0.30 });                   // globo ocular
+  const pupilaMat  = new THREE.MeshStandardMaterial({ color: 0x221e16, roughness: 0.20, metalness: 0.15 });
+
+  // Pequeño helper: malla con sombras ya activadas
+  const m = (geo, mat) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  };
+
+  // ---------- Cuerpo (cabeza y tronco fundidos, como en todo sapo) ----------
+  const cuerpo = m(new THREE.SphereGeometry(1, 48, 32), piel);
+  cuerpo.name = 'cuerpo';
+  cuerpo.scale.set(1.18, 0.78, 1.32);
+  cuerpo.position.y = 0.80;
+  sapo.add(cuerpo);
+
+  const panza = m(new THREE.SphereGeometry(1, 32, 24), vientre);
+  panza.scale.set(0.95, 0.55, 0.95);
+  panza.position.set(0, 0.58, 0.18);
+  sapo.add(panza);
+
+  // Saco gular (garganta): escala 'garganta' para simular el croar
+  const garganta = m(new THREE.SphereGeometry(1, 24, 18), vientre);
+  garganta.name = 'garganta';
+  garganta.scale.set(0.40, 0.32, 0.38);
+  garganta.position.set(0, 0.36, 1.02);
+  sapo.add(garganta);
+
+  // ---------- Boca: sonrisa ancha de sapo ----------
+  const curvaBoca = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.62, 0.68, 1.00),
+    new THREE.Vector3(-0.32, 0.57, 1.20),
+    new THREE.Vector3( 0.00, 0.54, 1.27),
+    new THREE.Vector3( 0.32, 0.57, 1.20),
+    new THREE.Vector3( 0.62, 0.68, 1.00),
+  ]);
+  const boca = m(new THREE.TubeGeometry(curvaBoca, 32, 0.035, 10, false), linea);
+  boca.name = 'boca';
+  sapo.add(boca);
+
+  // Fosas nasales en la punta del morro
+  for (const lado of [-1, 1]) {
+    const fosa = m(new THREE.SphereGeometry(0.045, 10, 8), linea);
+    fosa.position.set(0.14 * lado, 1.06, 1.19);
+    sapo.add(fosa);
+  }
+
+  // ---------- Ojos saltones (con párpado para poder parpadear) ----------
+  const ojos = [];
+  const parpados = [];
+  for (const lado of [-1, 1]) {
+    const ojo = new THREE.Group();
+    ojo.name = lado < 0 ? 'ojo_izquierdo' : 'ojo_derecho';
+    ojo.position.set(0.46 * lado, 1.50, 0.75);
+    sapo.add(ojo);
+
+    // Protuberancia ósea fundida con la cabeza
+    const base = m(new THREE.SphereGeometry(0.34, 24, 18), piel);
+    base.position.set(0, -0.08, -0.13);
+    ojo.add(base);
+
+    const globo = m(new THREE.SphereGeometry(0.27, 24, 18), blanco);
+    globo.position.set(0, 0.02, 0.03);
+    ojo.add(globo);
+
+    // Pupila horizontal, como la de los sapos de verdad
+    const pupila = m(new THREE.SphereGeometry(0.12, 16, 12), pupilaMat);
+    pupila.scale.set(1.5, 0.55, 0.6);
+    pupila.position.set(0, 0.04, 0.25);
+    ojo.add(pupila);
+
+    const brillo = m(new THREE.SphereGeometry(0.035, 8, 8), blanco);
+    brillo.position.set(0.06, 0.08, 0.32);
+    ojo.add(brillo);
+
+    const parpado = m(new THREE.SphereGeometry(0.29, 24, 16), piel);
+    parpado.scale.set(1.06, 0.5, 1.06);
+    parpado.position.set(0, 0.13, -0.01);
+    ojo.add(parpado);
+
+    ojos.push(ojo);
+    parpados.push(parpado);
+  }
+
+  // ---------- Verrugas del lomo (el sello de la casa) ----------
+  // Cada entrada: [phi (desde arriba), theta (alrededor), radio]
+  const verrugas = [
+    [0.55, 2.20, 0.085], [0.70, 3.05, 0.065], [0.60, 4.10, 0.080], [0.52, 5.30, 0.060],
+    [0.95, 1.75, 0.070], [1.05, 2.60, 0.095], [1.00, 3.40, 0.060], [1.05, 4.40, 0.090],
+    [0.95, 5.20, 0.070], [1.35, 2.20, 0.075], [1.30, 3.10, 0.065], [1.35, 4.00, 0.075],
+    [1.30, 4.90, 0.055], [0.80, 1.20, 0.050], [0.82, 5.90, 0.050], [1.15, 0.90, 0.050],
+  ];
+  for (const [phi, theta, radio] of verrugas) {
+    const v = m(new THREE.SphereGeometry(radio, 12, 10), pielOscura);
+    const s = Math.sin(phi);
+    v.position.set(s * Math.sin(theta) * 1.16, Math.cos(phi) * 0.765 + 0.80, s * Math.cos(theta) * 1.30);
+    sapo.add(v);
+  }
+
+  // ---------- Dedos: abanico de cápsulas tumbadas hacia delante ----------
+  const dedos = (grupo, cantidad, grosor, largo, arco) => {
+    for (let i = 0; i < cantidad; i++) {
+      const a = (i - (cantidad - 1) / 2) * 0.34;
+      const dedo = m(new THREE.CapsuleGeometry(grosor, largo, 4, 8), piel);
+      dedo.rotation.order = 'YXZ';
+      dedo.rotation.y = -a;
+      dedo.rotation.x = Math.PI / 2;
+      dedo.position.set(-Math.sin(a) * arco, 0, Math.cos(a) * arco);
+      grupo.add(dedo);
+    }
+  };
+
+  // ---------- Patas delanteras: columna recta y mano abierta ----------
+  for (const lado of [-1, 1]) {
+    const brazo = m(new THREE.CapsuleGeometry(0.13, 0.42, 6, 12), piel);
+    brazo.position.set(0.55 * lado, 0.36, 0.78);
+    brazo.rotation.x = -0.30;
+    brazo.rotation.z = 0.22 * lado;
+    sapo.add(brazo);
+
+    const mano = new THREE.Group();
+    mano.name = lado < 0 ? 'mano_izquierda' : 'mano_derecha';
+    mano.position.set(0.58 * lado, 0.075, 1.00);
+    mano.rotation.y = 0.30 * lado;
+    dedos(mano, 4, 0.045, 0.20, 0.15);
+    sapo.add(mano);
+  }
+
+  // ---------- Patas traseras: muslo plegado, tibia y pie palmeado ----------
+  for (const lado of [-1, 1]) {
+    const muslo = m(new THREE.SphereGeometry(0.5, 24, 18), piel);
+    muslo.scale.set(0.55, 0.72, 0.85);
+    muslo.position.set(0.98 * lado, 0.52, -0.55);
+    sapo.add(muslo);
+
+    const tibia = m(new THREE.CapsuleGeometry(0.14, 0.40, 6, 12), piel);
+    tibia.position.set(1.08 * lado, 0.32, -0.15);
+    tibia.rotation.x = -1.0;
+    tibia.rotation.z = 0.35 * lado;
+    sapo.add(tibia);
+
+    const pie = new THREE.Group();
+    pie.name = lado < 0 ? 'pie_izquierdo' : 'pie_derecho';
+    pie.position.set(1.16 * lado, 0.07, 0.45);
+    pie.rotation.y = 0.55 * lado;
+
+    const talon = m(new THREE.SphereGeometry(1, 20, 14), piel);
+    talon.scale.set(0.30, 0.10, 0.40);
+    talon.position.z = -0.05;
+    pie.add(talon);
+
+    dedos(pie, 4, 0.055, 0.30, 0.36);
+    sapo.add(pie);
+  }
+
+  // ---------- Ganchos útiles para animar desde fuera ----------
+  sapo.userData = { cuerpo, garganta, boca, ojos, parpados };
+
+  return sapo;   // ← el modelo, listo para scene.add(sapo)
+}
+
+window.crearSapo = crearSapo;   // también disponible en la consola
+
+/* ==================================================================
+   PRESENTACIÓN DE LA FUNCIÓN — código visible = código real
+   ================================================================== */
+const fuente = crearSapo.toString();
+
+function resaltar(src) {
+  const esc = src.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const re = /(\/\/[^\n]*)|('(?:[^'\\\n]|\\.)*')|\b(0x[0-9a-fA-F]+|\d+(?:\.\d+)?)\b|\b(function)\s+([A-Za-z_$][\w$]*)|\b(const|let|var|return|new|for|of|in|if|else|true|false|null|this)\b|\b(THREE\.[A-Za-z0-9_]+)\b/g;
+  return esc.replace(re, (m, com, str, num, fnKw, fnName, kw, cls) => {
+    if (com) return `<span class="tk-com">${m}</span>`;
+    if (str) return `<span class="tk-str">${m}</span>`;
+    if (num) return `<span class="tk-num">${m}</span>`;
+    if (fnKw) {
+      const medio = m.slice(fnKw.length, m.length - fnName.length);
+      return `<span class="tk-kw">${fnKw}</span>${medio}<span class="tk-fn">${fnName}</span>`;
+    }
+    if (kw) return `<span class="tk-kw">${m}</span>`;
+    return `<span class="tk-cls">${m}</span>`;
+  });
+}
+
+document.getElementById('codigoFuente').innerHTML = resaltar(fuente);
+document.getElementById('statLineas').textContent = fuente.split('\n').length;
+
+async function copiarFuente(btn) {
+  const span = btn.querySelector('span');
+  const original = span.textContent;
+  try {
+    await navigator.clipboard.writeText(fuente);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = fuente; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  btn.classList.add('ok');
+  span.textContent = '¡Copiada!';
+  setTimeout(() => { btn.classList.remove('ok'); span.textContent = original; }, 1600);
+}
+document.querySelectorAll('.copiar').forEach(b => b.addEventListener('click', () => copiarFuente(b)));
+
+document.querySelectorAll('.descargar').forEach(b => b.addEventListener('click', () => {
+  const blob = new Blob([fuente], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'crearSapo.js';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}));
+
+/* aparición al hacer scroll */
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+}), { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* ==================================================================
+   DEMO — Todo lo siguiente NO forma parte de la función.
+   Escena, cámara, luces, nenúfar y charca existen solo para
+   poder ver al sapo en esta página.
+   ================================================================== */
+function iniciarDemo() {
+  const lienzo = document.getElementById('lienzo');
+  const wrap = document.getElementById('canvasWrap');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true });
+  } catch {
+    wrap.innerHTML = '<p class="p-8 text-sm text-[#9AAF92]">Tu navegador no soporta WebGL, así que el sapo se queda en el código.</p>';
+    return;
+  }
+
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const escena = new THREE.Scene();
+  const colorFondo = new THREE.Color(0x0d1a11);
+  escena.background = colorFondo;
+  escena.fog = new THREE.Fog(colorFondo, 7, 16);
+
+  const camara = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+  camara.position.set(0.4, 2.0, 6.4);
+
+  // --- luces de la demo ---
+  escena.add(new THREE.HemisphereLight(0xd8ecbe, 0x20301a, 1.05));
+  const sol = new THREE.DirectionalLight(0xfff2d8, 2.5);
+  sol.position.set(3.5, 6, 4);
+  sol.castShadow = true;
+  sol.shadow.mapSize.set(1024, 1024);
+  sol.shadow.camera.left = sol.shadow.camera.bottom = -3.5;
+  sol.shadow.camera.right = sol.shadow.camera.top = 3.5;
+  sol.shadow.camera.near = 1; sol.shadow.camera.far = 14;
+  sol.shadow.bias = -0.0004;
+  escena.add(sol);
+  const luna = new THREE.PointLight(0x9fe870, 18, 15, 2);
+  luna.position.set(-3.2, 2.4, -2.6);
+  escena.add(luna);
+  const calida = new THREE.PointLight(0xffdfae, 6, 12, 2);
+  calida.position.set(-2.4, 1.2, 3.6);
+  escena.add(calida);
+
+  // --- charca, nenúfares y halo ---
+  const agua = new THREE.Mesh(
+    new THREE.CircleGeometry(15, 48),
+    new THREE.MeshStandardMaterial({ color: 0x12291d, roughness: 0.22, metalness: 0.35 })
+  );
+  agua.rotation.x = -Math.PI / 2;
+  agua.receiveShadow = true;
+  escena.add(agua);
+
+  const halo = new THREE.Mesh(
+    new THREE.CircleGeometry(2.4, 40),
+    new THREE.MeshBasicMaterial({ color: 0x1e4a33, transparent: true, opacity: 0.45 })
+  );
+  halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.006;
+  escena.add(halo);
+
+  const matNenufar = new THREE.MeshStandardMaterial({ color: 0x2e6b38, roughness: 0.85 });
+  const nenufar = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.5, 0.09, 40, 1, false, 0.45, 5.65), matNenufar);
+  nenufar.position.y = 0.045;
+  nenufar.rotation.y = -0.6;
+  nenufar.castShadow = nenufar.receiveShadow = true;
+
+  const nenufar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, 0.07, 32, 1, false, 1.1, 5.4), matNenufar);
+  nenufar2.position.set(-2.3, 0.035, -1.2);
+  nenufar2.receiveShadow = true;
+  escena.add(nenufar2);
+  const nenufar3 = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.68, 0.06, 24, 1, false, 2.0, 5.5), matNenufar);
+  nenufar3.position.set(2.5, 0.03, -0.7);
+  nenufar3.receiveShadow = true;
+  escena.add(nenufar3);
+
+  // --- ¡el sapo! (la única línea que importa de la demo) ---
+  const sapo = crearSapo();
+  sapo.position.y = 0.09;
+
+  const plataforma = new THREE.Group();
+  plataforma.add(nenufar, sapo);
+  escena.add(plataforma);
+
+  let mallas = 0;
+  sapo.traverse(o => { if (o.isMesh) mallas++; });
+  document.getElementById('statMallas').textContent = mallas;
+
+  // --- ondas en el agua ---
+  const ondas = [];
+  const fases = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    const anillo = new THREE.Mesh(
+      new THREE.RingGeometry(0.92, 0.97, 48),
+      new THREE.MeshBasicMaterial({ color: 0x9fe870, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+    );
+    anillo.rotation.x = -Math.PI / 2;
+    anillo.position.y = 0.014;
+    escena.add(anillo);
+    ondas.push(anillo);
+  }
+
+  // --- luciérnagas ---
+  const N = 42;
+  const pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3]     = (Math.random() - 0.5) * 7;
+    pos[i * 3 + 1] = 0.3 + Math.random() * 2.4;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 5;
+  }
+  const geoLuc = new THREE.BufferGeometry();
+  geoLuc.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const matLuc = new THREE.PointsMaterial({
+    color: 0xd9f77e, size: 0.05, transparent: true, opacity: 0.7,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const luciernagas = new THREE.Points(geoLuc, matLuc);
+  escena.add(luciernagas);
+
+  // --- estado de la animación ---
+  const quiet = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clock = new THREE.Clock();
+  const puntero = { x: 0, y: 0 };
+  const cuerpoBase = sapo.userData.cuerpo.scale.clone();
+  const gargBase = sapo.userData.garganta.scale.clone();
+  const PARPADO_REPOSO = 0.5;
+  let t = 0, blinkAt = 2.2, blinkK = -1, hopK = -1, introK = quiet ? 1 : 0;
+  let camX = 0.4, camY = 2.0;
+
+  const easeOutBack = k => {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+  };
+
+  const croacs = ['¡croac!', '¡croc!', '¡crooac!', '¡cro!'];
+  function saltar() {
+    if (hopK < 0) hopK = 0;
+    const capa = document.getElementById('croacs');
+    const c = document.createElement('div');
+    c.className = 'croac';
+    c.textContent = croacs[Math.floor(Math.random() * croacs.length)];
+    c.style.left = (38 + Math.random() * 26) + '%';
+    c.style.top = (22 + Math.random() * 18) + '%';
+    capa.appendChild(c);
+    c.addEventListener('animationend', () => c.remove());
+  }
+  wrap.addEventListener('pointerdown', () => { saltar(); fases[0] = t; });
+  wrap.addEventListener('pointermove', e => {
+    const r = wrap.getBoundingClientRect();
+    puntero.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    puntero.y = ((e.clientY - r.top) / r.height) * 2 - 1;
+  });
+
+  function fotograma() {
+    requestAnimationFrame(fotograma);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    t += dt;
+
+    // entrada con rebote
+    if (introK < 1) {
+      introK = Math.min(1, introK + dt / 0.9);
+      sapo.scale.setScalar(easeOutBack(introK));
+    }
+
+    if (!quiet) plataforma.rotation.y += dt * 0.22;
+
+    // respiración
+    const r = 1 + Math.sin(t * 2.0) * 0.016;
+    sapo.userData.cuerpo.scale.set(cuerpoBase.x * r, cuerpoBase.y * (1 + (r - 1) * 2.4), cuerpoBase.z * r);
+
+    // croar en reposo, de tanto en tanto
+    const g = Math.pow(Math.max(0, Math.sin(t * 0.9)), 14);
+
+    // parpadeo
+    let pe = PARPADO_REPOSO;
+    if (blinkK < 0 && t > blinkAt) blinkK = 0;
+    if (blinkK >= 0) {
+      blinkK += dt / 0.24;
+      pe = PARPADO_REPOSO + Math.sin(Math.min(blinkK, 1) * Math.PI) * 0.85;
+      if (blinkK >= 1) { blinkK = -1; blinkAt = t + 2.2 + Math.random() * 3.4; }
+    }
+    for (const p of sapo.userData.parpados) p.scale.y = pe;
+
+    // salto al hacer clic
+    let h = 0;
+    if (hopK >= 0) {
+      hopK += dt / 0.6;
+      const k = Math.min(hopK, 1);
+      h = Math.sin(k * Math.PI);
+      sapo.position.y = 0.09 + h * 0.5;
+      sapo.scale.set(1 + h * 0.07, 1 - h * 0.10, 1 + h * 0.07);
+      if (hopK >= 1) { hopK = -1; sapo.scale.set(1, 1, 1); sapo.position.y = 0.09; }
+    }
+
+    // garganta: croar en reposo + inflate durante el salto
+    const gs = 1 + g * 0.16 + h * 0.55;
+    sapo.userData.garganta.scale.set(gargBase.x * gs, gargBase.y * (1 + (gs - 1) * 0.8), gargBase.z * gs);
+
+    // los ojos siguen al puntero
+    for (const ojo of sapo.userData.ojos) {
+      ojo.rotation.y = THREE.MathUtils.lerp(ojo.rotation.y, puntero.x * 0.22, 0.06);
+      ojo.rotation.x = THREE.MathUtils.lerp(ojo.rotation.x, -puntero.y * 0.14, 0.06);
+    }
+
+    // ondas
+    ondas.forEach((anillo, i) => {
+      const f = (((t - fases[i]) * 0.30 + i * 0.33) % 1 + 1) % 1;
+      anillo.scale.setScalar(0.6 + f * 3.2);
+      anillo.material.opacity = 0.4 * (1 - f);
+    });
+
+    // luciérnagas
+    luciernagas.rotation.y = quiet ? 0 : t * 0.05;
+    luciernagas.position.y = Math.sin(t * 0.6) * 0.08;
+    matLuc.opacity = 0.55 + Math.sin(t * 2.7) * 0.25;
+
+    // parallax suave de cámara
+    camX = THREE.MathUtils.lerp(camX, 0.4 + puntero.x * 0.55, 0.045);
+    camY = THREE.MathUtils.lerp(camY, 2.0 - puntero.y * 0.3, 0.045);
+    camara.position.set(camX, camY, 6.4);
+    camara.lookAt(0, 0.95, 0);
+
+    renderer.render(escena, camara);
+  }
+
+  function redimensionar() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    renderer.setSize(w, h, false);
+    camara.aspect = w / h;
+    camara.updateProjectionMatrix();
+  }
+  new ResizeObserver(redimensionar).observe(wrap);
+  redimensionar();
+  fotograma();
+}
+
+iniciarDemo();
+</script>
+</body>
+</html>
+
+
+FORMATO DE SALIDA — JSON EXACTO. Devolvé los cambios de UNA de estas dos formas:
+
+OPCIÓN A (preferida si el archivo es chico, < 15 KB, o el cambio afecta mucho al archivo): contenido completo del archivo.
+{ "files": { "ruta/relativa": "contenido COMPLETO del archivo modificado" }, "nota": "breve explicación de lo que hiciste" }
+
+OPCIÓN B (para archivos grandes o cambios localizados): reemplazos exactos find/replace.
+{ "edits": [ { "file": "ruta/relativa", "find": "texto EXACTO tal como está en el archivo actual", "replace": "texto nuevo que lo reemplaza", "all": false } ], "nota": "..." }
+
+REGLAS PARA LOS EDITS:
+- "find" debe ser un substring EXACTO del archivo actual (respetando espacios y mayúsculas). Si aparece varias veces y querés reemplazar todas, poné "all": true; si no, debe aparecer UNA sola vez.
+- Si un "find" no matchea, el cambio falla: preferí anchors largos y únicos (líneas completas con contexto).
+- Podés mezclar varios edits y tocar varios archivos.
+- Podés AGREGAR archivos nuevos con "files" (ej: un CSS nuevo) y referenciarlos desde index.html con un edit.
+
+Al terminar, la tarea debe cumplir su criterio_de_exito y el juego debe seguir funcionando.
+
+FORMATO DE SALIDA — JSON EXACTO. Devolvé los cambios de UNA de estas dos formas:
+
+OPCIÓN A (preferida si el archivo es chico, < 15 KB, o el cambio afecta mucho al archivo): contenido completo del archivo.
+{ "files": { "ruta/relativa": "contenido COMPLETO del archivo modificado" }, "nota": "breve explicación de lo que hiciste" }
+
+OPCIÓN B (para archivos grandes o cambios localizados): reemplazos exactos find/replace.
+{ "edits": [ { "file": "ruta/relativa", "find": "texto EXACTO tal como está en el archivo actual", "replace": "texto nuevo que lo reemplaza", "all": false } ], "nota": "..." }
+
+REGLAS PARA LOS EDITS:
+- "find" debe ser un substring EXACTO del archivo actual (respetando espacios y mayúsculas). Si aparece varias veces y querés reemplazar todas, poné "all": true; si no, debe aparecer UNA sola vez.
+- Si un "find" no matchea, el cambio falla: preferí anchors largos y únicos (líneas completas con contexto).
+- Podés mezclar varios edits y tocar varios archivos.
+- Podés AGREGAR archivos nuevos con "files" (ej: un CSS nuevo) y referenciarlos desde index.html con un edit.
+
+Al terminar, la tarea debe cumplir su criterio_de_exito y el juego debe seguir funcionando.

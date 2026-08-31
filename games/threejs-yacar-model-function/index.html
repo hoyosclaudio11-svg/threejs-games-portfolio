@@ -1,0 +1,50 @@
+<!-- optimizado por mock executor (tarea 2) -->
+<!-- optimizado por mock executor (tarea 1) -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yacaré 3D • Función crearyacaré() en Three.js con Primitivas</title>
+    <meta name="description" content="Generador de modelo 3D de yacaré usando solo primitivas de Three.js con métodos caminar() y quedarseQuieto()." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+
+FORMATO DE SALIDA — JSON EXACTO. Devolvé los cambios de UNA de estas dos formas:
+
+OPCIÓN A (preferida si el archivo es chico, < 15 KB, o el cambio afecta mucho al archivo): contenido completo del archivo.
+{ "files": { "ruta/relativa": "contenido COMPLETO del archivo modificado" }, "nota": "breve explicación de lo que hiciste" }
+
+OPCIÓN B (para archivos grandes o cambios localizados): reemplazos exactos find/replace.
+{ "edits": [ { "file": "ruta/relativa", "find": "texto EXACTO tal como está en el archivo actual", "replace": "texto nuevo que lo reemplaza", "all": false } ], "nota": "..." }
+
+REGLAS PARA LOS EDITS:
+- "find" debe ser un substring EXACTO del archivo actual (respetando espacios y mayúsculas). Si aparece varias veces y querés reemplazar todas, poné "all": true; si no, debe aparecer UNA sola vez.
+- Si un "find" no matchea, el cambio falla: preferí anchors largos y únicos (líneas completas con contexto).
+- Podés mezclar varios edits y tocar varios archivos.
+- Podés AGREGAR archivos nuevos con "files" (ej: un CSS nuevo) y referenciarlos desde index.html con un edit.
+
+Al terminar, la tarea debe cumplir su criterio_de_exito y el juego debe seguir funcionando.
+
+
+FORMATO DE SALIDA — JSON EXACTO. Devolvé los cambios de UNA de estas dos formas:
+
+OPCIÓN A (preferida si el archivo es chico, < 15 KB, o el cambio afecta mucho al archivo): contenido completo del archivo.
+{ "files": { "ruta/relativa": "contenido COMPLETO del archivo modificado" }, "nota": "breve explicación de lo que hiciste" }
+
+OPCIÓN B (para archivos grandes o cambios localizados): reemplazos exactos find/replace.
+{ "edits": [ { "file": "ruta/relativa", "find": "texto EXACTO tal como está en el archivo actual", "replace": "texto nuevo que lo reemplaza", "all": false } ], "nota": "..." }
+
+REGLAS PARA LOS EDITS:
+- "find" debe ser un substring EXACTO del archivo actual (respetando espacios y mayúsculas). Si aparece varias veces y querés reemplazar todas, poné "all": true; si no, debe aparecer UNA sola vez.
+- Si un "find" no matchea, el cambio falla: preferí anchors largos y únicos (líneas completas con contexto).
+- Podés mezclar varios edits y tocar varios archivos.
+- Podés AGREGAR archivos nuevos con "files" (ej: un CSS nuevo) y referenciarlos desde index.html con un edit.
+
+Al terminar, la tarea debe cumplir su criterio_de_exito y el juego debe seguir funcionando.

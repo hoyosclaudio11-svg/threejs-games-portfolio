@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sapo del Monte: Una Aventura Chaqueña</title>
+    <!-- Fuentes Premium -->
+    
+    <link rel="stylesheet" href="style.css">
+    <!-- Iconos FontAwesome para UI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="game-wrapper">
+        <!-- Contenedor del Canvas 3D de Three.js -->
+        <div id="canvas-container"></div>
+        
+        <!-- HUD / Interfaz del Juego -->
+        <div id="hud" class="hidden">
+            <!-- Barra Superior: Estados e Indicadores -->
+            <div class="hud-top">
+                <div class="hud-left">
+                    <div class="hud-stat-bar">
+                        <span class="hud-label"><i class="fa-solid fa-bolt"></i> Energía</span>
+                        <div class="hud-bar-bg">
+                            <div id="energy-bar" class="hud-bar-fill energy" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="hud-stat-bar">
+                        <span class="hud-label"><i class="fa-solid fa-droplet"></i> Hidratación</span>
+                        <div class="hud-bar-bg">
+                            <div id="water-bar" class="hud-bar-fill water" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Indicador de Detección de la Lechuza (Estilo Splinter Cell / Stray) -->
+                <div class="hud-center">
+                    <div id="detection-meter" class="hidden">
+                        <span class="detection-icon"><i id="eye-icon" class="fa-solid fa-eye-slash"></i></span>
+                        <div class="detection-label">ALERTA LECHUZA</div>
+                        <div class="detection-bar-bg">
+                            <div id="detection-bar" class="detection-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    <div id="hiding-indicator" class="hidden">
+                        <span class="hiding-badge"><i class="fa-solid fa-leaf"></i> Oculto en la maleza</span>
+                    </div>
+                </div>
+
+                <div class="hud-right">
+                    <div class="hud-counter">
+                        <span class="counter-icon"><i class="fa-solid fa-bug"></i></span>
+                        <span id="score-display">Insectos: 0</span>
+                    </div>
+                    <div id="checkpoint-display" class="hidden-badge">
+                        <i class="fa-solid fa-campground"></i> Refugio Guardado
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Misión Activa -->
+            <div id="quest-log" class="quest-log-box">
+                <h3><i class="fa-solid fa-scroll"></i> Bitácora de Misión</h3>
+                <p id="active-quest-title">Ninguna misión activa</p>
+                <div class="quest-progress">
+                    <div id="quest-progress-text">Explora el monte chaqueño...</div>
+                    <div class="progress-bar-bg"><div id="quest-progress-bar" class="progress-bar-fill" style="width: 0%;"></div></div>
+                </div>
+            </div>
+
+            <!-- Prompt de Interacción contextual -->
+            <div id="interaction-prompt" class="hidden">
+                <div class="prompt-key">E</div>
+                <div id="interaction-text">Hablar con Tatú Mulita</div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Diálogo con NPCs (Glassmorphism Modal) -->
+        <div id="dialogue-screen" class="hidden">
+            <div class="dialogue-box">
+                <div class="dialogue-header">
+                    <div class="npc-portrait-container">
+                        <div id="npc-avatar" class="npc-avatar-placeholder">🐸</div>
+                    </div>
+                    <h2 id="npc-name">Tatú Mulita</h2>
+                </div>
+                <div class="dialogue-body">
+                    <p id="dialogue-text">¡Hola Sapito! Qué peligroso está el monte hoy...</p>
+                </div>
+                <div class="dialogue-footer">
+                    <button id="btn-dialogue-action" class="btn-primary">Aceptar Misión</button>
+                    <button id="btn-dialogue-close" class="btn-secondary">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Inicio -->
+        <div id="start-screen" class="overlay-screen">
+            <div class="content-box">
+                <div class="logo-container">
+                    <span class="game-badge">AVENTURA 3D EN EL CHACO</span>
+                    <h1>SAPO DEL MONTE</h1>
+                    <div class="divider"></div>
+                    <p class="subtitle">El vuelo del sapo y los peligros de la noche</p>
+                </div>
+                <p class="lore">
+                    Inspirado en los relatos de <strong>Gustavo Roldán</strong>.<br>
+                    Ayuda a los animales del monte chaqueño, mantén tu humedad en charcos de agua, y escápate de la sombra mortal de la <strong>Lechuza Vizcachera</strong> para alcanzar la Laguna Sagrada al otro lado de la selva seca.
+                </p>
+                
+                <div class="start-menu-grid">
+                    <div class="controls-info">
+                        <h3><i class="fa-solid fa-gamepad"></i> Controles de Juego</h3>
+                        <ul>
+                            <li><span><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></span> Mover al Sapo</li>
+                            <li><span><kbd>Espacio</kbd></span> Saltar / Cargar Salto</li>
+                            <li><span><kbd>Shift Izq</kbd> o <kbd>S</kbd></span> Ocultarse (cerca de helechos)</li>
+                            <li><span><kbd>Mouse</kbd> / <kbd>Arrastrar</kbd></span> Rotar Cámara en 3D</li>
+                            <li><span><kbd>E</kbd></span> Interactuar / Hablar</li>
+                        </ul>
+                    </div>
+                    <div class="game-features">
+                        <h3><i class="fa-solid fa-star"></i> Características</h3>
+                        <ul>
+                            <li><i class="fa-solid fa-circle-check"></i> Gráficos 3D en tercera persona</li>
+                            <li><i class="fa-solid fa-circle-check"></i> Físicas de salto realistas</li>
+                            <li><i class="fa-solid fa-circle-check"></i> Mecánica de sigilo y cono de visión de IA</li>
+                            <li><i class="fa-solid fa-circle-check"></i> Misiones narrativas del folklore chaqueño</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <button id="btn-start" class="btn-primary btn-huge"><i class="fa-solid fa-play"></i> Iniciar Aventura</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de Muerte / Reaparición -->
+        <div id="game-over-screen" class="overlay-screen hidden">
+            <div class="content-box death-box">
+                <div class="death-icon-container">
+                    <i class="fa-solid fa-ghost"></i>
+                </div>
+                <h2>Has Perecido en el Monte</h2>
+                <p id="death-reason">La Lechuza Vizcachera te atrapó con sus garras silenciosas.</p>
+                <p class="lore-small">El monte reclama sus almas, pero la leyenda del sapo astuto persiste...</p>
+                <button id="btn-respawn" class="btn-primary"><i class="fa-solid fa-arrows-rotate"></i> Despertar en Refugio</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de Victoria -->
+        <div id="victory-screen" class="overlay-screen hidden">
+            <div class="content-box victory-box">
+                <div class="victory-icon-container">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <h2>¡Has llegado a la Laguna Sagrada!</h2>
+                <p class="lore">
+                    El agua fresca abraza tu piel. Los animales del monte chaqueño cantan tu hazaña. Has burlado a la lechuza con tu astucia y valentía.
+                </p>
+                <div class="stats-panel">
+                    <div class="stat-item">
+                        <span class="stat-val" id="final-bugs">0</span>
+                        <span class="stat-lbl">Insectos Devorados</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-val" id="final-quests">3/3</span>
+                        <span class="stat-lbl">Misiones Cumplidas</span>
+                    </div>
+                </div>
+                <button id="btn-restart" class="btn-primary"><i class="fa-solid fa-rotate-left"></i> Jugar de Nuevo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts de Three.js y OrbitControls desde CDN -->
+    <script src="lib/three.min.js"></script>
+    <script src="lib/OrbitControls.js"></script>
+
+    <!-- Post-Processing de Three.js -->
+    <script src="lib/EffectComposer.js"></script>
+    <script src="lib/RenderPass.js"></script>
+    <script src="lib/UnrealBloomPass.js"></script>
+    <script src="lib/ShaderPass.js"></script>
+    <script src="lib/CopyShader.js"></script>
+    <script src="lib/LuminosityHighPassShader.js"></script>
+
+    <!-- Lógica del Juego -->
+    <script src="sound.js?v=3"></script>
+    <script src="game.js?v=3"></script>
+</body>
+</html>
+

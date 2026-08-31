@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@theme {
+  --color-night: #060907;
+  --color-night-2: #0b100c;
+  --color-bone: #f1e9d8;
+  --color-smoke: #9a9484;
+  --color-ember: #e6a34d;
+  --color-ember-2: #c97f2f;
+  --color-moss: #8b9c5e;
+  --color-leaf: #2c3a26;
+
+  --font-display: "Fraunces", georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, sfmono-regular, monospace;
+
+  --letterbox: clamp(44px, 6.5vh, 76px);
+
+  --animate-marquee: marquee 36s linear infinite;
+  --animate-ray: ray 9s ease-in-out infinite alternate;
+  --animate-mist-a: mist-a 32s ease-in-out infinite alternate;
+  --animate-mist-b: mist-b 45s ease-in-out infinite alternate;
+  --animate-cue: cue 2.2s cubic-bezier(0.76, 0, 0.24, 1) infinite;
+  --animate-blink: blink 1.1s steps(2, jump-none) infinite;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes ray {
+    from { opacity: 0.14; }
+    to { opacity: 0.5; }
+  }
+  @keyframes mist-a {
+    from { transform: translate3d(-7%, 1%, 0) scale(1); }
+    to { transform: translate3d(7%, -1.5%, 0) scale(1.08); }
+  }
+  @keyframes mist-b {
+    from { transform: translate3d(6%, -1%, 0) scale(1.1); }
+    to { transform: translate3d(-6%, 1%, 0) scale(1); }
+  }
+  @keyframes cue {
+    0% { transform: scaleY(0); transform-origin: top; }
+    45% { transform: scaleY(1); transform-origin: top; }
+    55% { transform: scaleY(1); transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3a26 #060907;
+}
+
+body {
+  background: var(--color-night);
+  color: var(--color-bone);
+  font-family: var(--font-display);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-ember);
+  color: var(--color-night);
+}
+
+@media (pointer: fine) {
+  * { cursor: none !important; }
+}
+
+/* ------------------------------------------------------------------
+   Utilities
+------------------------------------------------------------------- */
+
+.stroke-bone {
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-bone) 82%, transparent);
+  color: transparent;
+}
+.stroke-bone-soft {
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--color-bone) 34%, transparent);
+  color: transparent;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* Film-grain overlay */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -120px;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='280' height='280' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-jump 0.9s steps(4) infinite;
+}
+@keyframes grain-jump {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -3%); }
+  75% { transform: translate(-2%, -2%); }
+  100% { transform: translate(3%, 3%); }
+}
+
+/* Soft global vignette */
+.vignette::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 52%, rgba(3, 5, 4, 0.55) 100%);
+}
+
+/* Fireflies */
+.firefly {
+  position: absolute;
+  border-radius: 9999px;
+  background: #ffd98a;
+  box-shadow: 0 0 8px 2px rgba(255, 214, 138, 0.75), 0 0 22px 6px rgba(255, 190, 92, 0.3);
+  animation: firefly var(--dur, 7s) ease-in-out var(--delay, 0s) infinite;
+  opacity: 0;
+}
+@keyframes firefly {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  12% { opacity: 0.9; }
+  38% { opacity: 0.25; }
+  55% { opacity: 1; }
+  80% { opacity: 0.35; }
+  100% { opacity: 0; transform: translate(var(--dx, 30px), var(--dy, -40px)) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after, .firefly { animation: none; }
+}

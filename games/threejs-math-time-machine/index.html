@@ -1,0 +1,3222 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full w-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Crononautas 3D: Máquina del Tiempo Matemática</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  
+  <!-- Google Fonts: Orbitron, Chakra Petch & Fredoka -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Fredoka:wght@400;600;700&family=Orbitron:wght@600;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <!-- Three.js and OrbitControls CDN -->
+  <script src="lib/three.min.js"></script>
+  <script src="lib/OrbitControls.js"></script>
+
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    
+    body {
+      font-family: 'Fredoka', cursive, sans-serif;
+      overflow: hidden;
+      background-color: #030712;
+    }
+
+    .font-scifi {
+      font-family: 'Orbitron', monospace, sans-serif;
+    }
+
+    .font-tech {
+      font-family: 'Chakra Petch', sans-serif;
+    }
+
+    .font-digital {
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    /* Glows & Neon effects */
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.6), inset 0 0 15px rgba(6, 182, 212, 0.4);
+      border-color: #06b6d4;
+    }
+
+    .glow-amber {
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.6), inset 0 0 15px rgba(245, 158, 11, 0.3);
+      border-color: #f59e0b;
+    }
+
+    .glow-purple {
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.6), inset 0 0 15px rgba(168, 85, 247, 0.3);
+      border-color: #a855f7;
+    }
+
+    .glow-red {
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.7), inset 0 0 20px rgba(239, 68, 68, 0.4);
+      border-color: #ef4444;
+    }
+
+    .glow-green {
+      box-shadow: 0 0 25px rgba(34, 197, 94, 0.6), inset 0 0 15px rgba(34, 197, 94, 0.3);
+      border-color: #22c55e;
+    }
+
+    .text-glow-cyan {
+      text-shadow: 0 0 12px rgba(6, 182, 212, 0.9), 0 0 20px rgba(6, 182, 212, 0.6);
+    }
+    
+    .text-glow-gold {
+      text-shadow: 0 0 12px rgba(251, 191, 36, 0.9), 0 0 24px rgba(245, 158, 11, 0.7);
+    }
+
+    .text-glow-red {
+      text-shadow: 0 0 15px rgba(239, 68, 68, 0.9);
+    }
+
+    /* 3D button press animation */
+    .btn-3d {
+      transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .btn-3d:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.15);
+    }
+    .btn-3d:active {
+      transform: translateY(2px);
+      filter: brightness(0.9);
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.5);
+      border-radius: 4px;
+    }
+
+    /* Pulse animation for time coils */
+    @keyframes teslaPulse {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.08); opacity: 1; filter: drop-shadow(0 0 15px #38bdf8); }
+    }
+    .animate-tesla {
+      animation: teslaPulse 1.4s ease-in-out infinite;
+    }
+
+    /* Digital counter flip effect */
+    .number-display {
+      background: linear-gradient(180deg, #0b132b 0%, #1c2541 50%, #0b132b 100%);
+      border: 2px solid #3a506b;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 0 12px rgba(6, 182, 212, 0.3);
+    }
+
+    /* Shimmer effect for banner */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer-text {
+      background: linear-gradient(90deg, #fff 0%, #38bdf8 25%, #fff 50%, #a855f7 75%, #fff 100%);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      animation: shimmer 4s linear infinite;
+    }
+  </style>
+</head>
+
+<body class="h-full w-full select-none text-slate-100 flex flex-col relative">
+
+  <!-- 3D WEBGL CANVAS CONTAINER -->
+  <div id="canvas-container" class="absolute inset-0 z-0 w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+  <!-- SPEED WARP OVERLAY (DURING PORTAL TRAVEL) -->
+  <div id="warp-overlay" class="absolute inset-0 z-20 pointer-events-none opacity-0 transition-opacity duration-300 flex items-center justify-center bg-transparent">
+    <div class="absolute inset-0 bg-radial from-transparent via-cyan-900/30 to-black/80"></div>
+    <div class="relative text-center z-10 scale-90 transition-transform duration-500" id="warp-text-box">
+      <div class="text-xs uppercase tracking-widest font-scifi text-cyan-300 animate-pulse mb-2">⚡ RUPTURA ESPACIO-TEMPORAL ⚡</div>
+      <div id="warp-speed-text" class="text-4xl md:text-6xl font-black font-scifi text-white tracking-wider text-glow-cyan">VIAJANDO...</div>
+      <div id="warp-calc-display" class="mt-3 text-lg md:text-2xl font-digital text-amber-300 bg-black/60 px-6 py-2 rounded-full border border-cyan-400/50 backdrop-blur-md inline-block shadow-lg"></div>
+    </div>
+  </div>
+
+  <!-- TOP HEADER / STATUS BAR -->
+  <header class="relative z-30 flex items-center justify-between px-3 md:px-6 py-2.5 bg-slate-950/80 backdrop-blur-md border-b border-cyan-500/30 shadow-lg">
+    <!-- Left: Title & Badge -->
+    <div class="flex items-center gap-2 md:gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/30 border border-cyan-300/40">
+        <span class="text-xl">⏳</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm md:text-lg font-bold font-scifi tracking-wide text-white flex items-center gap-1.5">
+            CRONONAUTAS <span class="text-xs px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">3° GRADO</span>
+          </h1>
+        </div>
+        <p class="text-[11px] md:text-xs text-cyan-200/80 hidden sm:block font-tech">Sumas y Restas Temporales (Límite Mínimo: Año 0)</p>
+      </div>
+    </div>
+
+    <!-- Center: Current Mission Target Pill -->
+    <div id="mission-target-pill" class="flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-950/80 via-slate-900/90 to-amber-950/80 border-2 border-amber-400/60 shadow-md shadow-amber-500/20">
+      <span class="text-amber-400 text-sm md:text-base animate-bounce">🎯</span>
+      <div class="text-left">
+        <span class="text-[10px] uppercase tracking-wider text-amber-300/80 font-tech block leading-none">Misión Actual</span>
+        <span id="target-mission-name" class="text-xs md:text-sm font-bold text-amber-200 font-tech">Viajar al Año 0 (Egipto)</span>
+      </div>
+      <div class="ml-1 pl-2 border-l border-amber-400/30 text-xs md:text-sm font-digital text-amber-400 font-bold" id="target-year-badge">
+        META: 0
+      </div>
+    </div>
+
+    <!-- Right: Stats, Audio, Help & Badges -->
+    <div class="flex items-center gap-2 md:gap-3">
+      <!-- Score & Streak -->
+      <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-700/80 text-xs font-tech">
+        <span class="text-yellow-400 font-bold flex items-center gap-1">⭐ <span id="score-val">0</span> pts</span>
+        <span class="text-slate-500">|</span>
+        <span class="text-emerald-400 font-bold flex items-center gap-1">🔥 Racha: <span id="streak-val">0</span></span>
+      </div>
+
+      <!-- Mode Selector Button -->
+      <button id="btn-mode" onclick="game.toggleModeMenu()" class="btn-3d px-2.5 md:px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 text-xs font-tech flex items-center gap-1.5 shadow">
+        <span>🎮</span>
+        <span class="hidden sm:inline" id="mode-name-label">Misiones</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="btn-sound" onclick="audioEngine.toggleMute()" class="btn-3d p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 text-sm shadow">
+        <span id="sound-icon">🔊</span>
+      </button>
+
+      <!-- View / Camera Reset -->
+      <button onclick="game.resetCamera()" title="Centrar Cámara" class="btn-3d p-2 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 text-sm shadow">
+        <span>🎥</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ARRIVAL SLIM BANNER (VISIBLE ONCE DESTINATION IS REACHED - LEAVING 3D 100% VISIBLE) -->
+  <div id="arrival-banner" class="absolute top-16 left-1/2 -translate-x-1/2 z-20 w-[95%] max-w-4xl opacity-0 pointer-events-none transition-all duration-500 transform -translate-y-4">
+    <div id="banner-card" class="rounded-2xl p-3 md:p-4 backdrop-blur-xl border-2 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-3 text-white transition-all">
+      <!-- Status Icon & Title -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div id="banner-icon-bg" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-lg">
+          <span id="banner-emoji">🏛️</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="banner-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-tech">¡LLEGADA EXACTA!</span>
+            <span id="banner-delta-tag" class="text-[11px] font-digital text-slate-300 font-bold"></span>
+          </div>
+          <h2 id="banner-title" class="text-sm md:text-lg font-bold font-scifi leading-tight truncate">AÑO 0: Antiguo Egipto y el Río Nilo</h2>
+          <p id="banner-desc" class="text-xs text-slate-200 mt-0.5 line-clamp-2 md:line-clamp-1 font-sans"></p>
+        </div>
+      </div>
+
+      <!-- Action Buttons in Banner -->
+      <div class="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+        <button id="btn-banner-inspect" onclick="game.toggleInfoModal()" class="btn-3d px-3 py-1.5 rounded-xl bg-cyan-900/60 hover:bg-cyan-800/80 border border-cyan-400/60 text-cyan-200 text-xs font-tech flex items-center gap-1">
+          <span>📜</span> <span class="hidden sm:inline">Dato Curioso</span>
+        </button>
+        <button id="btn-banner-next" onclick="game.nextMission()" class="btn-3d px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 border border-emerald-300 text-slate-950 font-bold text-xs md:text-sm font-tech flex items-center gap-1.5 shadow-lg shadow-emerald-500/40">
+          <span>🚀 Siguiente Misión</span>
+        </button>
+        <button id="btn-banner-machine" onclick="game.openControlPanel()" class="btn-3d px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-xs text-slate-200 font-tech">
+          ⚙️ Ajustar Salto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN HUD / TIME MACHINE DASHBOARD (BOTTOM / CENTER CONSOLE) -->
+  <div id="machine-hud" class="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 w-[96%] max-w-4xl transition-all duration-500">
+    <div class="relative rounded-3xl bg-slate-950/85 backdrop-blur-xl border-2 border-cyan-500/50 shadow-[0_0_50px_rgba(6,182,212,0.35)] p-3 md:p-5 text-white">
+
+      <!-- Flanking Tesla Indicators on UI (Mirroring the 3D Tesla Coils) -->
+      <div class="absolute -top-6 -left-3 md:-left-5 w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-400 border-2 border-cyan-200 flex items-center justify-center text-xl md:text-2xl shadow-[0_0_25px_#06b6d4] animate-tesla pointer-events-none">
+        ⚡
+      </div>
+      <div class="absolute -top-6 -right-3 md:-right-5 w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-400 border-2 border-purple-200 flex items-center justify-center text-xl md:text-2xl shadow-[0_0_25px_#a855f7] animate-tesla pointer-events-none">
+        ⚡
+      </div>
+
+      <!-- Compact Bar Header: Mission Clue / Pedagogical Helper -->
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-cyan-500/20 text-xs">
+        <div class="flex items-center gap-2 text-cyan-300 font-tech">
+          <span class="animate-pulse">💡</span>
+          <span id="pedagogical-hint" class="font-medium">Calcula la operación para llegar exactamente al Año Meta. ¡Cuidado de no bajar del Año 0!</span>
+        </div>
+        <button onclick="game.toggleHudCollapse()" id="btn-collapse" class="text-[11px] text-cyan-400 hover:text-cyan-200 flex items-center gap-1 font-tech px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800">
+          <span id="collapse-icon">▼</span> <span id="collapse-text">Minimizar</span>
+        </button>
+      </div>
+
+      <!-- COLLAPSIBLE SECTION -->
+      <div id="hud-collapsible" class="transition-all duration-300">
+        
+        <!-- THE RETRO-FUTURISTIC DIGITAL CLOCK VISOR (AÑO ANTERIOR -> OPERACIÓN -> SALTO -> DESTINO) -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-3 items-center mb-3">
+          
+          <!-- 1. AÑO ACTUAL / ORIGEN -->
+          <div class="number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden group">
+            <div class="text-[10px] font-tech uppercase tracking-widest text-cyan-300/80 mb-1 flex items-center justify-center gap-1">
+              <span>📍</span> Año Actual
+            </div>
+            <div id="display-current-year" class="text-2xl md:text-3xl font-black font-digital text-cyan-300 tracking-wider">
+              1200
+            </div>
+            <div class="text-[10px] font-tech text-slate-400 truncate" id="display-current-era">
+              Era Medieval
+            </div>
+          </div>
+
+          <!-- 2. OPERACIÓN (+ / -) & SALTO DE AÑOS -->
+          <div class="md:col-span-2 bg-slate-900/90 rounded-2xl p-2.5 md:p-3 border border-cyan-500/40 flex flex-col justify-between">
+            
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-tech uppercase tracking-wider text-amber-300 flex items-center gap-1">
+                <span>⚙️</span> Elige Operación y Salto
+              </span>
+
+              <!-- + / - Toggle Buttons -->
+              <div class="flex items-center bg-slate-950 rounded-xl p-1 border border-cyan-500/40">
+                <button id="op-btn-add" onclick="game.setOperation('+')" class="px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/50">
+                  + SUMAR
+                </button>
+                <button id="op-btn-sub" onclick="game.setOperation('-')" class="px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all text-slate-400 hover:text-white">
+                  - RESTAR
+                </button>
+              </div>
+            </div>
+
+            <!-- Input / Jump Number Display with quick steppers -->
+            <div class="flex items-center gap-2">
+              <button onclick="game.adjustJump(-100)" class="btn-3d w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-bold text-xs flex items-center justify-center">
+                -100
+              </button>
+              <button onclick="game.adjustJump(-10)" class="btn-3d w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-bold text-xs flex items-center justify-center">
+                -10
+              </button>
+              
+              <!-- Value Input Container -->
+              <div class="flex-1 number-display rounded-xl py-1.5 px-3 text-center flex items-center justify-center gap-2">
+                <span id="display-op-symbol" class="text-xl font-bold font-scifi text-emerald-400">+</span>
+                <input id="input-jump" type="number" min="0" max="10000" value="800" step="10" 
+                  oninput="game.onJumpInputChange(this.value)" 
+                  class="w-24 md:w-32 bg-transparent text-xl md:text-2xl font-black font-digital text-amber-300 text-center outline-none focus:text-white" />
+                <span class="text-xs text-slate-400 font-tech">años</span>
+              </div>
+
+              <button onclick="game.adjustJump(10)" class="btn-3d w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-bold text-xs flex items-center justify-center">
+                +10
+              </button>
+              <button onclick="game.adjustJump(100)" class="btn-3d w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 font-bold text-xs flex items-center justify-center">
+                +100
+              </button>
+            </div>
+
+            <!-- Quick Jump Preset Chips for 3rd Graders -->
+            <div class="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
+              <span class="text-[10px] text-slate-400 font-tech">Atajos:</span>
+              <button onclick="game.setJumpExact(50)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">50</button>
+              <button onclick="game.setJumpExact(100)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">100</button>
+              <button onclick="game.setJumpExact(500)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">500</button>
+              <button onclick="game.setJumpExact(800)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">800</button>
+              <button onclick="game.setJumpExact(1000)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">1000</button>
+              <button onclick="game.setJumpExact(1200)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">1200</button>
+              <button onclick="game.setJumpExact(1800)" class="btn-3d px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-900 border border-cyan-700 text-[11px] font-digital text-cyan-300">1800</button>
+            </div>
+          </div>
+
+          <!-- 3. AÑO DESTINO CALCULADO -->
+          <div id="target-calc-box" class="number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden transition-colors">
+            <div class="text-[10px] font-tech uppercase tracking-widest text-slate-300 mb-1 flex items-center justify-center gap-1">
+              <span>🚀</span> Llegarás al Año:
+            </div>
+            <div id="display-calc-result" class="text-2xl md:text-3xl font-black font-digital text-emerald-400 tracking-wider">
+              2000
+            </div>
+            <div id="display-calc-status" class="text-[10px] font-tech text-emerald-300 font-bold truncate">
+              🎯 ¡Coincide con la Meta!
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 3D BIG ACTIVATION BUTTON -->
+        <div class="flex items-center gap-3">
+          <button id="btn-activate" onclick="game.triggerTravel()" class="btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:via-indigo-400 hover:to-purple-500 border-2 border-cyan-200 text-white font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_30px_rgba(6,182,212,0.6)] flex items-center justify-center gap-3">
+            <span class="text-xl animate-pulse">⚡</span>
+            <span>¡ACTIVAR VIAJE TEMPORAL!</span>
+            <span class="text-xl animate-pulse">⚡</span>
+          </button>
+          
+          <button onclick="game.showClueModal()" title="Pista de Matemáticas" class="btn-3d px-4 py-3 md:py-4 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/60 text-amber-300 font-tech font-bold text-xs md:text-sm flex items-center gap-1.5">
+            <span>💡</span> <span class="hidden sm:inline">Pista</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FLOATING BOTTOM CONTROLS (CAMERA & QUICK ACCESS) -->
+  <div class="absolute bottom-4 right-4 z-10 flex flex-col gap-2 pointer-events-auto">
+    <button onclick="game.toggleAutoRotate()" id="btn-autorotate" title="Giro Automático Cinemático" class="btn-3d w-10 h-10 rounded-full bg-slate-900/80 backdrop-blur-md border border-cyan-500/40 text-cyan-300 flex items-center justify-center shadow-lg text-sm">
+      🔄
+    </button>
+    <button onclick="game.toggleInfoModal()" title="Guía del Mundo" class="btn-3d w-10 h-10 rounded-full bg-slate-900/80 backdrop-blur-md border border-cyan-500/40 text-cyan-300 flex items-center justify-center shadow-lg text-sm">
+      📖
+    </button>
+  </div>
+
+  <!-- MODAL: INFO / DATO CURIOSO HISTÓRICO & GUÍA PEDAGÓGICA -->
+  <div id="modal-info" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-slate-950 border-2 border-cyan-500/60 rounded-3xl max-w-lg w-full p-6 text-white shadow-2xl relative">
+      <button onclick="game.toggleInfoModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">✕</button>
+      
+      <div class="flex items-center gap-3 mb-4">
+        <div id="modal-era-icon" class="w-14 h-14 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-3xl">🏛️</div>
+        <div>
+          <span class="text-xs uppercase font-tech tracking-wider text-cyan-300" id="modal-era-tag">Época Histórica</span>
+          <h3 id="modal-era-title" class="text-xl font-bold font-scifi text-white">Año 0: Antiguo Egipto</h3>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 mb-4">
+        <h4 class="text-xs uppercase font-tech text-amber-300 font-bold mb-1">🏺 ¿Qué estamos viendo en el Mundo 3D?</h4>
+        <p id="modal-era-desc" class="text-sm text-slate-300 leading-relaxed font-sans"></p>
+      </div>
+
+      <div class="bg-indigo-950/40 rounded-2xl p-4 border border-indigo-500/30 mb-5">
+        <h4 class="text-xs uppercase font-tech text-cyan-300 font-bold mb-1">📐 Conexión Matemática (3° Grado):</h4>
+        <p id="modal-math-desc" class="text-xs text-indigo-200 font-sans leading-relaxed"></p>
+      </div>
+
+      <button onclick="game.toggleInfoModal()" class="btn-3d w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold font-scifi tracking-wider text-sm shadow-lg">
+        ¡ENTENDIDO, SIGAMOS EXPLORANDO!
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: MODO DE JUEGO / SELECCIÓN DE MISIONES -->
+  <div id="modal-modes" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-slate-950 border-2 border-indigo-500/60 rounded-3xl max-w-2xl w-full p-6 text-white shadow-2xl relative max-h-[90vh] flex flex-col">
+      <button onclick="game.toggleModeMenu()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">✕</button>
+
+      <div class="mb-4">
+        <h3 class="text-xl md:text-2xl font-black font-scifi text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">
+          🛰️ SALA DE CONTROL TEMPORAL
+        </h3>
+        <p class="text-xs text-slate-400 font-tech">Selecciona tu modo de juego o salta a una época específica:</p>
+      </div>
+
+      <!-- Modes Tabs -->
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="game.switchMode('campaign')" id="tab-campaign" class="py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all bg-indigo-600 text-white border-indigo-400 shadow-md">
+          📜 Modo Misiones
+        </button>
+        <button onclick="game.switchMode('free')" id="tab-free" class="py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all bg-slate-900 text-slate-400 border-slate-700 hover:text-white">
+          🎲 Desafío Libre
+        </button>
+        <button onclick="game.switchMode('lab')" id="tab-lab" class="py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all bg-slate-900 text-slate-400 border-slate-700 hover:text-white">
+          🔬 Laboratorio Anómalías
+        </button>
+      </div>
+
+      <!-- Missions List (Scrollable) -->
+      <div id="missions-list" class="flex-1 overflow-y-auto space-y-2.5 pr-1 mb-4">
+        <!-- Generated dynamically via JS -->
+      </div>
+
+      <div class="pt-2 border-t border-slate-800 flex justify-end">
+        <button onclick="game.toggleModeMenu()" class="btn-3d px-6 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-tech">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CLUE / PISTA MATEMÁTICA INTERACTIVA -->
+  <div id="modal-clue" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-slate-950 border-2 border-amber-500/60 rounded-3xl max-w-md w-full p-6 text-white shadow-2xl relative text-center">
+      <button onclick="game.showClueModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">✕</button>
+
+      <div class="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-3xl mx-auto mb-3">
+        💡
+      </div>
+      <h3 class="text-lg font-bold font-scifi text-amber-300 mb-2">¡Pista Matemática para Crononautas!</h3>
+      
+      <div id="clue-content" class="bg-slate-900/90 rounded-2xl p-4 border border-amber-500/30 text-left text-sm text-slate-200 mb-4 space-y-2 font-tech">
+        <!-- Injected via JS -->
+      </div>
+
+      <button onclick="game.showClueModal(false)" class="btn-3d w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold font-scifi text-xs tracking-wider">
+        ¡ENTENDÍ! VAMOS A CALCULAR
+      </button>
+    </div>
+  </div>
+
+  <!-- AUDIO INITIALIZATION BANNER (DISMISSED ON FIRST INTERACTION) -->
+  <div id="audio-start-prompt" class="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-indigo-950/90 border border-cyan-400/60 text-cyan-200 text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md flex items-center gap-2 animate-bounce cursor-pointer" onclick="audioEngine.init()">
+    <span>🔊</span>
+    <span>Haz clic aquí o en cualquier botón para activar los Efectos Sintéticos de Sonido</span>
+  </div>
+
+  <!-- JAVASCRIPT GAME ENGINE & TECHNICAL ART SCRIPT -->
+  <script>
+    /* =========================================================================
+       1. SYNTHETIC AUDIO ENGINE (WEB AUDIO API) - 100% Procedural & Authentic
+       ========================================================================= */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.currentAmbientNode = null;
+        this.ambientGain = null;
+        this.initialized = false;
+      }
+
+      init() {
+        if (this.initialized) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.ambientGain = this.ctx.createGain();
+          this.ambientGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          this.ambientGain.connect(this.ctx.destination);
+          this.initialized = true;
+
+          const prompt = document.getElementById('audio-start-prompt');
+          if (prompt) prompt.style.display = 'none';
+
+          // Play subtle startup hum
+          this.playClick(600, 0.05);
+        } catch (e) {
+          console.warn('Web Audio API not supported or blocked:', e);
+        }
+      }
+
+      ensureContext() {
+        if (!this.initialized) this.init();
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      toggleMute() {
+        this.ensureContext();
+        this.muted = !this.muted;
+        const icon = document.getElementById('sound-icon');
+        if (icon) icon.innerText = this.muted ? '🔇' : '🔊';
+        if (this.ambientGain) {
+          this.ambientGain.gain.setTargetAtTime(this.muted ? 0 : 0.3, this.ctx.currentTime, 0.05);
+        }
+      }
+
+      // UI Click Sound
+      playClick(freq = 800, duration = 0.04) {
+        if (this.muted || !this.ctx) return;
+        this.ensureContext();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.5, this.ctx.currentTime + duration);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+
+      // Dial / Stepper Click
+      playDial() {
+        this.playClick(1200, 0.02);
+      }
+
+      // Tesla Electric Spark Sequence (Sparks and Arcs)
+      playTeslaSparks(duration = 1.8) {
+        if (this.muted || !this.ctx) return;
+        this.ensureContext();
+        
+        // Generate noise bursts and modulated carrier
+        const bufferSize = this.ctx.sampleRate * duration;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * (Math.random() > 0.4 ? 1 : 0);
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1200, this.ctx.currentTime);
+        filter.Q.setValueAtTime(8, this.ctx.currentTime);
+
+        // LFO for lightning buzzing flutter
+        const lfo = this.ctx.createOscillator();
+        lfo.frequency.setValueAtTime(45, this.ctx.currentTime);
+        const lfoGain = this.ctx.createGain();
+        lfoGain.gain.setValueAtTime(800, this.ctx.currentTime);
+        lfo.connect(filter.frequency);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.35, this.ctx.currentTime + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.4, this.ctx.currentTime + duration - 0.2);
+        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start();
+        lfo.start();
+        noise.stop(this.ctx.currentTime + duration);
+        lfo.stop(this.ctx.currentTime + duration);
+      }
+
+      // Warp Tunnel Whoosh & Frequency Sweep
+      playWarpTunnel(duration = 2.0) {
+        if (this.muted || !this.ctx) return;
+        this.ensureContext();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        
+        osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1400, this.ctx.currentTime + duration * 0.7);
+        osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + duration);
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(300, this.ctx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(3500, this.ctx.currentTime + duration * 0.7);
+        filter.frequency.linearRampToValueAtTime(500, this.ctx.currentTime + duration);
+
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + duration * 0.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+
+      // Era Arrival Jingle (Success vs Error)
+      playArrivalSuccess() {
+        if (this.muted || !this.ctx) return;
+        this.ensureContext();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, index) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + index * 0.1);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime + index * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + index * 0.1 + 0.4);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + index * 0.1);
+          osc.stop(this.ctx.currentTime + index * 0.1 + 0.45);
+        });
+      }
+
+      playArrivalError() {
+        if (this.muted || !this.ctx) return;
+        this.ensureContext();
+        const notes = [440, 392, 330, 220];
+        notes.forEach((freq, index) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + index * 0.12);
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime + index * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + index * 0.12 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + index * 0.12);
+          osc.stop(this.ctx.currentTime + index * 0.12 + 0.4);
+        });
+      }
+
+      // Dynamic Ambient Synthesizer per Era
+      setEraAmbient(eraType) {
+        if (!this.ctx) return;
+        this.stopCurrentAmbient();
+
+        if (this.muted) return;
+
+        const t = this.ctx.currentTime;
+
+        if (eraType === 'EGYPT') {
+          // Desert Wind + Soft harmonic drone
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(146.83, t); // D3
+          gain.gain.setValueAtTime(0.05, t);
+
+          const lfo = this.ctx.createOscillator();
+          lfo.frequency.setValueAtTime(0.2, t);
+          const lfoGain = this.ctx.createGain();
+          lfoGain.gain.setValueAtTime(10, t);
+          lfo.connect(osc.frequency);
+
+          osc.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          lfo.start();
+          this.currentAmbientNode = { osc, lfo, gain };
+
+        } else if (eraType === 'MEDIEVAL') {
+          // Pastoral rustic lute tone pulse
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, t); // A3
+          gain.gain.setValueAtTime(0.04, t);
+
+          osc.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          this.currentAmbientNode = { osc, gain };
+
+        } else if (eraType === 'CITY') {
+          // City low frequency engine hum + subtle pulse
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(65.41, t); // C2
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(180, t);
+
+          gain.gain.setValueAtTime(0.06, t);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          this.currentAmbientNode = { osc, gain, filter };
+
+        } else if (eraType === 'FUTURE') {
+          // Sci-Fi engine hum + harmonic frequency shimmer
+          const osc = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc2.type = 'sine';
+          osc.frequency.setValueAtTime(110, t);
+          osc2.frequency.setValueAtTime(440, t);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(600, t);
+          filter.Q.setValueAtTime(5, t);
+
+          gain.gain.setValueAtTime(0.05, t);
+
+          osc.connect(filter);
+          osc2.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          osc2.start();
+          this.currentAmbientNode = { osc, osc2, gain, filter };
+
+        } else if (eraType === 'DINO') {
+          // Jungle resonance + Low dinosaur roar trigger
+          this.triggerDinoRoar();
+
+        } else if (eraType === 'SPACE') {
+          // Cosmic ether drone + satellite blips
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(82.41, t); // E2
+          gain.gain.setValueAtTime(0.07, t);
+
+          osc.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          this.currentAmbientNode = { osc, gain };
+
+          this.triggerSatelliteBleeps();
+
+        } else if (eraType === 'LAVA') {
+          // Bubbling magma rumble + emergency klaxon alarm
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(55, t); // A1
+          gain.gain.setValueAtTime(0.08, t);
+
+          osc.connect(gain);
+          gain.connect(this.ambientGain);
+          osc.start();
+          this.currentAmbientNode = { osc, gain };
+
+          this.triggerLavaAlarm();
+        }
+      }
+
+      triggerDinoRoar() {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + 0.3;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, t);
+        osc.frequency.exponentialRampToValueAtTime(45, t + 1.2);
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, t);
+        filter.frequency.exponentialRampToValueAtTime(120, t + 1.2);
+
+        gain.gain.setValueAtTime(0.01, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 1.5);
+      }
+
+      triggerSatelliteBleeps() {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + 0.5;
+        [1760, 2093, 2637].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t + idx * 0.2);
+          gain.gain.setValueAtTime(0.08, t + idx * 0.2);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.2 + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t + idx * 0.2);
+          osc.stop(t + idx * 0.2 + 0.18);
+        });
+      }
+
+      triggerLavaAlarm() {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime + 0.2;
+        for (let i = 0; i < 3; i++) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(600, t + i * 0.4);
+          osc.frequency.linearRampToValueAtTime(400, t + i * 0.4 + 0.25);
+          gain.gain.setValueAtTime(0.12, t + i * 0.4);
+          gain.gain.linearRampToValueAtTime(0.001, t + i * 0.4 + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t + i * 0.4);
+          osc.stop(t + i * 0.4 + 0.3);
+        }
+      }
+
+      stopCurrentAmbient() {
+        if (this.currentAmbientNode) {
+          try {
+            if (this.currentAmbientNode.osc) this.currentAmbientNode.osc.stop();
+            if (this.currentAmbientNode.osc2) this.currentAmbientNode.osc2.stop();
+            if (this.currentAmbientNode.lfo) this.currentAmbientNode.lfo.stop();
+          } catch(e) {}
+          this.currentAmbientNode = null;
+        }
+      }
+    }
+
+    const audioEngine = new AudioEngine();
+
+    /* =========================================================================
+       2. THREE.JS TECHNICAL ART & PROCEDURAL WORLDS ENGINE
+       ========================================================================= */
+    class WorldRenderer {
+      constructor(container) {
+        this.container = container;
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+        
+        // Scene roots
+        this.worldGroup = new THREE.Group();
+        this.timeMachineGroup = new THREE.Group();
+        this.vortexGroup = new THREE.Group();
+        
+        // Active animations map
+        this.animatedObjects = [];
+        this.teslaArcs = [];
+        
+        // Lighting references
+        this.ambientLight = null;
+        this.dirLight = null;
+        this.pointLights = [];
+        
+        // Current active world id
+        this.currentWorldId = null;
+        
+        // Travel state
+        this.isTraveling = false;
+        this.warpStartTime = 0;
+        
+        this.init();
+      }
+
+      init() {
+        // Scene setup
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x040814);
+        this.scene.fog = new THREE.FogExp2(0x040814, 0.008);
+
+        // Camera setup
+        this.camera = new THREE.PerspectiveCamera(
+          55,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        this.camera.position.set(0, 8, 20);
+
+        // Renderer setup
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.15;
+        this.container.appendChild(this.renderer.domElement);
+
+        // OrbitControls
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.06;
+        this.controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't clip under ground
+        this.controls.minDistance = 5;
+        this.controls.maxDistance = 60;
+        this.controls.target.set(0, 3, 0);
+
+        // Scene Hierarchy
+        this.scene.add(this.worldGroup);
+        this.scene.add(this.timeMachineGroup);
+        this.scene.add(this.vortexGroup);
+        this.vortexGroup.visible = false;
+
+        // Global Dynamic Lighting
+        this.setupLighting();
+
+        // Build the 3D Time Machine in center
+        this.build3DTimeMachine();
+
+        // Build the 3D Light Vortex Tunnel
+        this.buildVortexTunnel();
+
+        // Window resize listener
+        window.addEventListener('resize', () => this.onResize());
+
+        // Animation Loop
+        this.clock = new THREE.Clock();
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+
+      setupLighting() {
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+        this.scene.add(this.ambientLight);
+
+        this.dirLight = new THREE.DirectionalLight(0xfff4e0, 1.2);
+        this.dirLight.position.set(25, 40, 20);
+        this.dirLight.castShadow = true;
+        this.dirLight.shadow.mapSize.width = 2048;
+        this.dirLight.shadow.mapSize.height = 2048;
+        this.dirLight.shadow.camera.near = 0.5;
+        this.dirLight.shadow.camera.far = 150;
+        const d = 35;
+        this.dirLight.shadow.camera.left = -d;
+        this.dirLight.shadow.camera.right = d;
+        this.dirLight.shadow.camera.top = d;
+        this.dirLight.shadow.camera.bottom = -d;
+        this.dirLight.shadow.bias = -0.0005;
+        this.scene.add(this.dirLight);
+      }
+
+      onResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      /* -------------------------------------------------------------
+         3D RETRO-FUTURISTIC TIME MACHINE (CENTERPIECE WITH TESLA COILS)
+         ------------------------------------------------------------- */
+      build3DTimeMachine() {
+        this.timeMachineGroup.position.set(0, 0, 4);
+
+        // 1. Futuristic Hexagonal Platform
+        const platGeo = new THREE.CylinderGeometry(4.5, 5, 0.6, 6);
+        const platMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          metalness: 0.8,
+          roughness: 0.3
+        });
+        const platform = new THREE.Mesh(platGeo, platMat);
+        platform.position.y = 0.3;
+        platform.receiveShadow = true;
+        this.timeMachineGroup.add(platform);
+
+        // Glowing platform trim ring
+        const ringGeo = new THREE.TorusGeometry(4.7, 0.08, 16, 6);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 0.6;
+        this.timeMachineGroup.add(ring);
+
+        // 2. Central Retro-Futuristic Digital Clock Console
+        const consoleGroup = new THREE.Group();
+        consoleGroup.position.set(0, 0.6, 0);
+
+        // Console Base
+        const baseGeo = new THREE.BoxGeometry(2.4, 1.4, 1.2);
+        const baseMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          metalness: 0.85,
+          roughness: 0.25
+        });
+        const consoleBase = new THREE.Mesh(baseGeo, baseMat);
+        consoleBase.position.y = 0.7;
+        consoleBase.castShadow = true;
+        consoleGroup.add(consoleBase);
+
+        // Console Slanted Digital Screen
+        const screenGeo = new THREE.BoxGeometry(2.0, 1.0, 0.1);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x030712 });
+        const screen = new THREE.Mesh(screenGeo, screenMat);
+        screen.position.set(0, 1.3, 0.45);
+        screen.rotation.x = -0.3;
+        consoleGroup.add(screen);
+
+        // Holographic Glowing Visor Frame
+        const visorFrameGeo = new THREE.BoxGeometry(2.1, 1.1, 0.05);
+        const visorFrameMat = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          wireframe: true
+        });
+        const visorFrame = new THREE.Mesh(visorFrameGeo, visorFrameMat);
+        visorFrame.position.copy(screen.position);
+        visorFrame.rotation.copy(screen.rotation);
+        consoleGroup.add(visorFrame);
+
+        // Golden Dial Dials & Gears on console
+        const gearGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 12);
+        const gearMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+        const gear1 = new THREE.Mesh(gearGeo, gearMat);
+        gear1.rotation.x = Math.PI / 2;
+        gear1.position.set(-0.7, 0.6, 0.61);
+        consoleGroup.add(gear1);
+
+        const gear2 = gear1.clone();
+        gear2.position.set(0.7, 0.6, 0.61);
+        gear2.scale.set(0.7, 0.7, 0.7);
+        consoleGroup.add(gear2);
+
+        this.animatedObjects.push({
+          update: (t) => {
+            gear1.rotation.z = t * 1.5;
+            gear2.rotation.z = -t * 2.2;
+          }
+        });
+
+        // 3. TWO METALLIC SPHERES (TESLA COILS) FLANKING THE MACHINE
+        this.teslaSpheres = [];
+        const coilPositions = [-2.8, 2.8];
+
+        coilPositions.forEach((posX, i) => {
+          const coilGroup = new THREE.Group();
+          coilGroup.position.set(posX, 0.6, 0);
+
+          // Pillar with copper/chrome rings
+          const pillarGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.4, 16);
+          const pillarMat = new THREE.MeshStandardMaterial({
+            color: 0x334155,
+            metalness: 0.9,
+            roughness: 0.2
+          });
+          const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+          pillar.position.y = 1.2;
+          pillar.castShadow = true;
+          coilGroup.add(pillar);
+
+          // Copper Coils wrapping the pillar
+          for (let c = 0; c < 6; c++) {
+            const torusGeo = new THREE.TorusGeometry(0.36, 0.05, 12, 24);
+            const torusMat = new THREE.MeshStandardMaterial({
+              color: 0xd97706,
+              metalness: 0.95,
+              roughness: 0.1
+            });
+            const coilRing = new THREE.Mesh(torusGeo, torusMat);
+            coilRing.rotation.x = Math.PI / 2;
+            coilRing.position.y = 0.5 + c * 0.32;
+            coilGroup.add(coilRing);
+          }
+
+          // Top Metallic Sphere (Tesla Sphere)
+          const sphereGeo = new THREE.SphereGeometry(0.7, 32, 32);
+          const sphereMat = new THREE.MeshStandardMaterial({
+            color: i === 0 ? 0x06b6d4 : 0xa855f7,
+            metalness: 0.95,
+            roughness: 0.1,
+            emissive: i === 0 ? 0x083344 : 0x3b0764,
+            emissiveIntensity: 0.6
+          });
+          const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+          sphere.position.y = 2.7;
+          sphere.castShadow = true;
+          coilGroup.add(sphere);
+
+          // Glow Halo around Tesla Sphere
+          const glowSphereGeo = new THREE.SphereGeometry(0.85, 16, 16);
+          const glowSphereMat = new THREE.MeshBasicMaterial({
+            color: i === 0 ? 0x38bdf8 : 0xc084fc,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+          });
+          const glowSphere = new THREE.Mesh(glowSphereGeo, glowSphereMat);
+          glowSphere.position.y = 2.7;
+          coilGroup.add(glowSphere);
+
+          this.timeMachineGroup.add(coilGroup);
+          this.teslaSpheres.push({ sphere, glowSphere, light: null });
+        });
+
+        this.timeMachineGroup.add(consoleGroup);
+
+        // Floating holographic energy ring above the whole machine
+        const mainHaloGeo = new THREE.TorusGeometry(3.2, 0.06, 16, 64);
+        const mainHaloMat = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.7
+        });
+        const mainHalo = new THREE.Mesh(mainHaloGeo, mainHaloMat);
+        mainHalo.rotation.x = Math.PI / 2;
+        mainHalo.position.y = 3.6;
+        this.timeMachineGroup.add(mainHalo);
+
+        this.animatedObjects.push({
+          update: (t) => {
+            mainHalo.rotation.z = t * 0.8;
+            mainHalo.position.y = 3.6 + Math.sin(t * 2) * 0.15;
+            this.teslaSpheres.forEach((ts, idx) => {
+              ts.glowSphere.rotation.y = t * (idx === 0 ? 1.5 : -1.5);
+              ts.glowSphere.rotation.x = t * 0.8;
+            });
+          }
+        });
+      }
+
+      // Generate Dynamic Procedural Lightning Arcs between Tesla Spheres
+      triggerTeslaLightning(active = true) {
+        // Clear previous lightning lines
+        this.teslaArcs.forEach(line => this.timeMachineGroup.remove(line));
+        this.teslaArcs = [];
+
+        if (!active) return;
+
+        // Create 4-6 jagged electrical line segments
+        const p1 = new THREE.Vector3(-2.8, 3.3, 0);
+        const p2 = new THREE.Vector3(2.8, 3.3, 0);
+
+        for (let arc = 0; arc < 4; arc++) {
+          const points = [];
+          const segments = 10;
+          for (let s = 0; s <= segments; s++) {
+            const alpha = s / segments;
+            const pt = new THREE.Vector3().lerpVectors(p1, p2, alpha);
+            if (s > 0 && s < segments) {
+              pt.x += (Math.random() - 0.5) * 0.6;
+              pt.y += (Math.random() - 0.5) * 1.2 + Math.sin(alpha * Math.PI) * 0.8;
+              pt.z += (Math.random() - 0.5) * 0.8;
+            }
+            points.push(pt);
+          }
+          const geo = new THREE.BufferGeometry().setFromPoints(points);
+          const mat = new THREE.LineBasicMaterial({
+            color: arc % 2 === 0 ? 0x38bdf8 : 0xe879f9,
+            linewidth: 3
+          });
+          const line = new THREE.Line(geo, mat);
+          this.timeMachineGroup.add(line);
+          this.teslaArcs.push(line);
+        }
+      }
+
+      /* -------------------------------------------------------------
+         3D LIGHT VORTEX / WORMHOLE TUNNEL (TRAVEL SEQUENCE)
+         ------------------------------------------------------------- */
+      buildVortexTunnel() {
+        this.vortexRings = [];
+        const ringCount = 35;
+        for (let i = 0; i < ringCount; i++) {
+          const radius = 4 + (i * 0.15);
+          const geo = new THREE.TorusGeometry(radius, 0.12, 12, 32);
+          const mat = new THREE.MeshBasicMaterial({
+            color: (i % 3 === 0) ? 0x06b6d4 : (i % 3 === 1 ? 0xa855f7 : 0xfbbf24),
+            transparent: true,
+            opacity: 0.85
+          });
+          const ring = new THREE.Mesh(geo, mat);
+          ring.position.z = -i * 3.5;
+          this.vortexGroup.add(ring);
+          this.vortexRings.push(ring);
+        }
+
+        // Particle speed lines inside tunnel
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 600;
+        const starPositions = new Float32Array(starCount * 3);
+        const starColors = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 1.5 + Math.random() * 4;
+          starPositions[i * 3] = Math.cos(angle) * dist;
+          starPositions[i * 3 + 1] = Math.sin(angle) * dist;
+          starPositions[i * 3 + 2] = -Math.random() * 120;
+
+          starColors[i * 3] = 0.5 + Math.random() * 0.5;
+          starColors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+          starColors[i * 3 + 2] = 1.0;
+        }
+
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+        const starMat = new THREE.PointsMaterial({
+          size: 0.4,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.9
+        });
+        this.vortexStars = new THREE.Points(starGeo, starMat);
+        this.vortexGroup.add(this.vortexStars);
+      }
+
+      /* -------------------------------------------------------------
+         CLEAR AND RESET WORLD GROUP
+         ------------------------------------------------------------- */
+      clearWorld() {
+        while (this.worldGroup.children.length > 0) {
+          const obj = this.worldGroup.children[0];
+          this.worldGroup.remove(obj);
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+          }
+        }
+        // Remove world specific animated objects
+        this.animatedObjects = this.animatedObjects.filter(item => !item.isWorldObject);
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO 1: AÑO 0 - EGIPTO (PIRÁMIDES, RÍO NILO, SOL GIGANTE, PALMERAS)
+         ------------------------------------------------------------- */
+      buildWorldEgypt() {
+        this.clearWorld();
+        this.currentWorldId = 'EGYPT';
+
+        // Sky & Fog (Warm golden desert atmosphere)
+        this.scene.background = new THREE.Color(0xfde68a);
+        this.scene.fog = new THREE.FogExp2(0xeab308, 0.012);
+        this.ambientLight.color.setHex(0xffedd5);
+        this.ambientLight.intensity = 1.1;
+        this.dirLight.color.setHex(0xfef08a);
+        this.dirLight.intensity = 1.6;
+        this.dirLight.position.set(30, 25, -40);
+
+        // 1. Giant Golden Sun in the Horizon
+        const sunGeo = new THREE.SphereGeometry(12, 32, 32);
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+        const sun = new THREE.Mesh(sunGeo, sunMat);
+        sun.position.set(0, 14, -140);
+        this.worldGroup.add(sun);
+
+        // Sun Corona Halo
+        const sunCoronaGeo = new THREE.RingGeometry(12.5, 24, 32);
+        const sunCoronaMat = new THREE.MeshBasicMaterial({
+          color: 0xf59e0b,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.4
+        });
+        const sunCorona = new THREE.Mesh(sunCoronaGeo, sunCoronaMat);
+        sunCorona.position.copy(sun.position);
+        this.worldGroup.add(sunCorona);
+
+        // 2. Sand Terrain with Dunes
+        const groundGeo = new THREE.PlaneGeometry(300, 300, 60, 60);
+        const pos = groundGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const vx = pos.getX(i);
+          const vy = pos.getY(i);
+          // Dunes undulation
+          const z = Math.sin(vx * 0.05) * 1.5 + Math.cos(vy * 0.04) * 2.0;
+          pos.setZ(i, z);
+        }
+        groundGeo.computeVertexNormals();
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: 0xd97706,
+          roughness: 0.9,
+          metalness: 0.1,
+          flatShading: true
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.2;
+        ground.receiveShadow = true;
+        this.worldGroup.add(ground);
+
+        // 3. THE RÍO NILO (Blue Sparkling River crossing the map)
+        const riverGeo = new THREE.PlaneGeometry(28, 280, 20, 40);
+        const riverMat = new THREE.MeshStandardMaterial({
+          color: 0x0284c7,
+          metalness: 0.8,
+          roughness: 0.15,
+          transparent: true,
+          opacity: 0.92
+        });
+        const river = new THREE.Mesh(riverGeo, riverMat);
+        river.rotation.x = -Math.PI / 2;
+        river.rotation.z = 0.35;
+        river.position.set(-18, 0.05, -20);
+        river.receiveShadow = true;
+        this.worldGroup.add(river);
+
+        // River wave animation
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            river.material.color.setHSL(0.55, 0.85, 0.38 + Math.sin(t * 2) * 0.04);
+          }
+        });
+
+        // 4. Egyptian Felucca Sailboats on the Nile
+        for (let b = 0; b < 3; b++) {
+          const boatGroup = new THREE.Group();
+          // Boat Hull
+          const hullGeo = new THREE.BoxGeometry(2.2, 0.6, 5);
+          const hullMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+          const hull = new THREE.Mesh(hullGeo, hullMat);
+          hull.position.y = 0.3;
+          boatGroup.add(hull);
+
+          // Triangular White Sail
+          const sailShape = new THREE.Shape();
+          sailShape.moveTo(0, 0);
+          sailShape.lineTo(2.4, 3.5);
+          sailShape.lineTo(-0.5, 4.2);
+          sailShape.closePath();
+          const sailGeo = new THREE.ShapeGeometry(sailShape);
+          const sailMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, side: THREE.DoubleSide });
+          const sail = new THREE.Mesh(sailGeo, sailMat);
+          sail.position.set(0, 0.6, 0);
+          sail.rotation.y = 0.2;
+          boatGroup.add(sail);
+
+          boatGroup.position.set(-24 + b * 6, 0.1, -40 - b * 35);
+          this.worldGroup.add(boatGroup);
+
+          const initialZ = boatGroup.position.z;
+          this.animatedObjects.push({
+            isWorldObject: true,
+            update: (t) => {
+              boatGroup.position.z = initialZ + Math.sin(t * 0.5 + b) * 4;
+              boatGroup.rotation.z = Math.sin(t * 1.5 + b) * 0.08;
+            }
+          });
+        }
+
+        // 5. THE GREAT PYRAMID OF GIZA & Secondary Pyramids
+        const pyramidData = [
+          { x: 28, z: -55, size: 28, height: 22, goldenCap: true },
+          { x: 58, z: -90, size: 20, height: 16, goldenCap: false },
+          { x: -50, z: -110, size: 16, height: 12, goldenCap: false }
+        ];
+
+        pyramidData.forEach(p => {
+          const pyrGeo = new THREE.ConeGeometry(p.size * 0.7, p.height, 4);
+          const pyrMat = new THREE.MeshStandardMaterial({
+            color: 0xd97706,
+            roughness: 0.85,
+            flatShading: true
+          });
+          const pyramid = new THREE.Mesh(pyrGeo, pyrMat);
+          pyramid.position.set(p.x, p.height / 2, p.z);
+          pyramid.rotation.y = Math.PI / 4;
+          pyramid.castShadow = true;
+          pyramid.receiveShadow = true;
+          this.worldGroup.add(pyramid);
+
+          // Golden Pyramid Cap (Capuchón de oro de la Gran Pirámide)
+          if (p.goldenCap) {
+            const capGeo = new THREE.ConeGeometry(p.size * 0.7 * 0.2, p.height * 0.2, 4);
+            const capMat = new THREE.MeshStandardMaterial({
+              color: 0xfacc15,
+              metalness: 0.9,
+              roughness: 0.1
+            });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.set(p.x, p.height * 0.9, p.z);
+            cap.rotation.y = Math.PI / 4;
+            this.worldGroup.add(cap);
+          }
+        });
+
+        // 6. Oasis Palm Trees
+        const createPalm = (x, z, scale = 1) => {
+          const palmGroup = new THREE.Group();
+          palmGroup.position.set(x, 0, z);
+          palmGroup.scale.set(scale, scale, scale);
+
+          // Curved Trunk
+          const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 4.5, 8);
+          const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+          const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+          trunk.position.y = 2.25;
+          trunk.rotation.z = 0.08;
+          trunk.castShadow = true;
+          palmGroup.add(trunk);
+
+          // Palm Fronds
+          for (let f = 0; f < 7; f++) {
+            const frondGeo = new THREE.ConeGeometry(1.4, 3.2, 4);
+            const frondMat = new THREE.MeshStandardMaterial({ color: 0x15803d, flatShading: true });
+            const frond = new THREE.Mesh(frondGeo, frondMat);
+            frond.position.set(0, 4.4, 0);
+            frond.rotation.x = 0.8;
+            frond.rotation.y = (f / 7) * Math.PI * 2;
+            palmGroup.add(frond);
+          }
+          this.worldGroup.add(palmGroup);
+
+          this.animatedObjects.push({
+            isWorldObject: true,
+            update: (t) => {
+              palmGroup.rotation.z = Math.sin(t * 2 + x) * 0.04;
+            }
+          });
+        };
+
+        // Plant palm groves near river banks
+        const palmLocs = [
+          [-8, -10], [-6, -18], [-10, -25], [-5, -35], [2, -22],
+          [-12, -4], [-22, -15], [-26, -30], [-15, -45], [12, -30]
+        ];
+        palmLocs.forEach(loc => createPalm(loc[0], loc[1], 0.8 + Math.random() * 0.4));
+
+        // 7. Ancient Egyptian Adobe Village / Obelisks in horizon
+        for (let i = 0; i < 8; i++) {
+          const houseGeo = new THREE.BoxGeometry(3 + Math.random() * 2, 2.5, 3 + Math.random() * 2);
+          const houseMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.9 });
+          const house = new THREE.Mesh(houseGeo, houseMat);
+          house.position.set(-60 + i * 15 + Math.random() * 5, 1.25, -70 - Math.random() * 30);
+          this.worldGroup.add(house);
+        }
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO 2: AÑO 1200 - MEDIEVAL (CASTILLO, ANTORCHAS, CAMINO, MOLINO)
+         ------------------------------------------------------------- */
+      buildWorldMedieval() {
+        this.clearWorld();
+        this.currentWorldId = 'MEDIEVAL';
+
+        // Sky & Fog (Lush medieval green-blue valley)
+        this.scene.background = new THREE.Color(0x93c5fd);
+        this.scene.fog = new THREE.FogExp2(0x86efac, 0.01);
+        this.ambientLight.color.setHex(0xf0fdf4);
+        this.ambientLight.intensity = 1.0;
+        this.dirLight.color.setHex(0xfef9c3);
+        this.dirLight.intensity = 1.4;
+        this.dirLight.position.set(35, 45, 25);
+
+        // 1. Lush Green Rolling Hills
+        const groundGeo = new THREE.PlaneGeometry(300, 300, 60, 60);
+        const pos = groundGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const vx = pos.getX(i);
+          const vy = pos.getY(i);
+          const z = Math.sin(vx * 0.03) * 2.5 + Math.cos(vy * 0.03) * 2.0;
+          pos.setZ(i, z);
+        }
+        groundGeo.computeVertexNormals();
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: 0x16a34a,
+          roughness: 0.85,
+          flatShading: true
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.2;
+        ground.receiveShadow = true;
+        this.worldGroup.add(ground);
+
+        // 2. Stone Cobblestone Road
+        const roadGeo = new THREE.PlaneGeometry(6, 180);
+        const roadMat = new THREE.MeshStandardMaterial({
+          color: 0x64748b,
+          roughness: 0.95
+        });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.set(0, 0.05, -50);
+        road.receiveShadow = true;
+        this.worldGroup.add(road);
+
+        // 3. GRAND MEDIEVAL CASTLE FORTRESS
+        const castleGroup = new THREE.Group();
+        castleGroup.position.set(0, 0, -65);
+
+        // Main Keep (Torre del Homenaje)
+        const keepGeo = new THREE.BoxGeometry(16, 18, 14);
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8, flatShading: true });
+        const keep = new THREE.Mesh(keepGeo, stoneMat);
+        keep.position.y = 9;
+        keep.castShadow = true;
+        castleGroup.add(keep);
+
+        // Crenellations (Almenas)
+        for (let c = -7; c <= 7; c += 2.5) {
+          const crenGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+          const cren = new THREE.Mesh(crenGeo, stoneMat);
+          cren.position.set(c, 18.6, 7);
+          castleGroup.add(cren);
+          const crenBack = cren.clone();
+          crenBack.position.z = -7;
+          castleGroup.add(crenBack);
+        }
+
+        // 4 Round Castle Towers with Conical Red Roofs
+        const towerOffsets = [[-10, 8], [10, 8], [-10, -8], [10, -8]];
+        towerOffsets.forEach(to => {
+          const towerGeo = new THREE.CylinderGeometry(2.4, 2.8, 22, 16);
+          const tower = new THREE.Mesh(towerGeo, stoneMat);
+          tower.position.set(to[0], 11, to[1]);
+          tower.castShadow = true;
+          castleGroup.add(tower);
+
+          // Conical Roof
+          const roofGeo = new THREE.ConeGeometry(3.2, 6, 16);
+          const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.7 });
+          const roof = new THREE.Mesh(roofGeo, roofMat);
+          roof.position.set(to[0], 25, to[1]);
+          roof.castShadow = true;
+          castleGroup.add(roof);
+
+          // Tower Banners waving in the wind
+          const bannerGeo = new THREE.PlaneGeometry(1.2, 2.4);
+          const bannerMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, side: THREE.DoubleSide });
+          const banner = new THREE.Mesh(bannerGeo, bannerMat);
+          banner.position.set(to[0] + 0.8, 28, to[1]);
+          castleGroup.add(banner);
+
+          this.animatedObjects.push({
+            isWorldObject: true,
+            update: (t) => {
+              banner.rotation.y = Math.sin(t * 3 + to[0]) * 0.3;
+            }
+          });
+        });
+
+        this.worldGroup.add(castleGroup);
+
+        // 4. Flaming Torches with Particle Fire Light along the road
+        const torchLocs = [[-4, -15], [4, -15], [-4, -35], [4, -35], [-4, -55], [4, -55]];
+        this.torches = [];
+        torchLocs.forEach(tl => {
+          const postGeo = new THREE.CylinderGeometry(0.15, 0.2, 3, 8);
+          const postMat = new THREE.MeshStandardMaterial({ color: 0x451a03 });
+          const post = new THREE.Mesh(postGeo, postMat);
+          post.position.set(tl[0], 1.5, tl[1]);
+          post.castShadow = true;
+          this.worldGroup.add(post);
+
+          // Flame mesh
+          const flameGeo = new THREE.SphereGeometry(0.35, 8, 8);
+          const flameMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+          const flame = new THREE.Mesh(flameGeo, flameMat);
+          flame.position.set(tl[0], 3.2, tl[1]);
+          this.worldGroup.add(flame);
+
+          // Point Light for torch
+          const pLight = new THREE.PointLight(0xf97316, 1.2, 10);
+          pLight.position.copy(flame.position);
+          this.worldGroup.add(pLight);
+          this.torches.push({ flame, pLight });
+        });
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            this.torches.forEach((torch, idx) => {
+              const flicker = Math.sin(t * 12 + idx * 3) * 0.3 + 0.9;
+              torch.flame.scale.set(flicker, flicker * 1.2, flicker);
+              torch.pLight.intensity = flicker * 1.4;
+            });
+          }
+        });
+
+        // 5. Working Windmill on a Distant Hill
+        const millGroup = new THREE.Group();
+        millGroup.position.set(45, 0, -45);
+        const millBodyGeo = new THREE.CylinderGeometry(2.5, 4, 12, 8);
+        const millBodyMat = new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.9 });
+        const millBody = new THREE.Mesh(millBodyGeo, millBodyMat);
+        millBody.position.y = 6;
+        millGroup.add(millBody);
+
+        // Windmill Sails (Rotating)
+        const sailsGroup = new THREE.Group();
+        sailsGroup.position.set(0, 10, 2.6);
+        for (let s = 0; s < 4; s++) {
+          const bladeGeo = new THREE.BoxGeometry(0.6, 7, 0.1);
+          const bladeMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+          const blade = new THREE.Mesh(bladeGeo, bladeMat);
+          blade.position.y = 3.5;
+          blade.rotation.z = (s / 4) * Math.PI * 2;
+          sailsGroup.add(blade);
+        }
+        millGroup.add(sailsGroup);
+        this.worldGroup.add(millGroup);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            sailsGroup.rotation.z = t * 1.2;
+          }
+        });
+
+        // 6. Pine Forests in Background
+        for (let i = 0; i < 40; i++) {
+          const treeGroup = new THREE.Group();
+          const x = (Math.random() > 0.5 ? 1 : -1) * (15 + Math.random() * 50);
+          const z = -20 - Math.random() * 100;
+          treeGroup.position.set(x, 0, z);
+
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.3, 0.5, 3, 6),
+            new THREE.MeshStandardMaterial({ color: 0x451a03 })
+          );
+          trunk.position.y = 1.5;
+          treeGroup.add(trunk);
+
+          for (let l = 0; l < 3; l++) {
+            const foliage = new THREE.Mesh(
+              new THREE.ConeGeometry(2.2 - l * 0.4, 3.2, 6),
+              new THREE.MeshStandardMaterial({ color: 0x14532d, flatShading: true })
+            );
+            foliage.position.y = 3.2 + l * 1.8;
+            foliage.castShadow = true;
+            treeGroup.add(foliage);
+          }
+          this.worldGroup.add(treeGroup);
+        }
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO 3: AÑO 2000 - CIUDAD MODERNA (ASFALTO, EDIFICIOS, AUTOS EN MOVIMIENTO)
+         ------------------------------------------------------------- */
+      buildWorldCity() {
+        this.clearWorld();
+        this.currentWorldId = 'CITY';
+
+        // Sky & Fog (Modern urban twilight/sunset atmosphere)
+        this.scene.background = new THREE.Color(0x38bdf8);
+        this.scene.fog = new THREE.FogExp2(0x93c5fd, 0.009);
+        this.ambientLight.color.setHex(0xffffff);
+        this.ambientLight.intensity = 0.95;
+        this.dirLight.color.setHex(0xffedd5);
+        this.dirLight.intensity = 1.3;
+        this.dirLight.position.set(40, 50, 20);
+
+        // 1. Asphalt Ground & City Blocks
+        const groundGeo = new THREE.PlaneGeometry(300, 300);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        this.worldGroup.add(ground);
+
+        // 2. Main Asphalt Avenue with White Dashed Lines
+        const roadGeo = new THREE.PlaneGeometry(16, 220);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.set(0, 0.02, -50);
+        road.receiveShadow = true;
+        this.worldGroup.add(road);
+
+        // Cross street
+        const crossRoadGeo = new THREE.PlaneGeometry(220, 16);
+        const crossRoad = new THREE.Mesh(crossRoadGeo, roadMat);
+        crossRoad.rotation.x = -Math.PI / 2;
+        crossRoad.position.set(0, 0.03, -40);
+        this.worldGroup.add(crossRoad);
+
+        // 3. MODERN SKYSCRAPERS & APARTMENTS
+        const buildingColors = [0x1e293b, 0x3b82f6, 0x64748b, 0x0369a1, 0x475569];
+        const bldRows = [
+          // Left side
+          { x: -25, z: -20, w: 12, h: 28, d: 14 },
+          { x: -28, z: -55, w: 14, h: 42, d: 16 },
+          { x: -30, z: -90, w: 16, h: 36, d: 18 },
+          { x: -45, z: -35, w: 14, h: 50, d: 14 },
+          // Right side
+          { x: 25, z: -20, w: 12, h: 32, d: 14 },
+          { x: 28, z: -55, w: 15, h: 48, d: 15 },
+          { x: 30, z: -90, w: 18, h: 38, d: 16 },
+          { x: 45, z: -35, w: 14, h: 45, d: 14 }
+        ];
+
+        bldRows.forEach((bld, idx) => {
+          const bGeo = new THREE.BoxGeometry(bld.w, bld.h, bld.d);
+          const bMat = new THREE.MeshStandardMaterial({
+            color: buildingColors[idx % buildingColors.length],
+            roughness: 0.4,
+            metalness: 0.6
+          });
+          const building = new THREE.Mesh(bGeo, bMat);
+          building.position.set(bld.x, bld.h / 2, bld.z);
+          building.castShadow = true;
+          building.receiveShadow = true;
+          this.worldGroup.add(building);
+
+          // Glowing windows grid on buildings
+          const winGeo = new THREE.PlaneGeometry(bld.w * 0.85, bld.h * 0.85, 6, 12);
+          const winMat = new THREE.MeshBasicMaterial({
+            color: 0xfef08a,
+            wireframe: true
+          });
+          const windows = new THREE.Mesh(winGeo, winMat);
+          windows.position.set(bld.x + (bld.x > 0 ? -bld.w/2 - 0.05 : bld.w/2 + 0.05), bld.h / 2, bld.z);
+          windows.rotation.y = bld.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+          this.worldGroup.add(windows);
+        });
+
+        // 4. 3D MOVING CARS (SEDANS, TAXIS, BUSES ALONG THE STREETS)
+        const carColors = [0xef4444, 0xfacc15, 0x3b82f6, 0xffffff, 0x10b981];
+        this.cars = [];
+
+        // North-South Cars (Road 1)
+        for (let c = 0; c < 6; c++) {
+          const carGroup = new THREE.Group();
+          const isGoingNorth = c % 2 === 0;
+
+          // Car Body
+          const bodyGeo = new THREE.BoxGeometry(2.0, 1.0, 4.0);
+          const bodyMat = new THREE.MeshStandardMaterial({ color: carColors[c % carColors.length], roughness: 0.2, metalness: 0.8 });
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          body.position.y = 0.7;
+          body.castShadow = true;
+          carGroup.add(body);
+
+          // Cabin
+          const cabinGeo = new THREE.BoxGeometry(1.7, 0.8, 2.2);
+          const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1 });
+          const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+          cabin.position.set(0, 1.4, -0.2);
+          carGroup.add(cabin);
+
+          // Headlights
+          const lightGeo = new THREE.SphereGeometry(0.2, 8, 8);
+          const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+          const l1 = new THREE.Mesh(lightGeo, lightMat);
+          l1.position.set(-0.7, 0.7, -2.05);
+          const l2 = l1.clone();
+          l2.position.x = 0.7;
+          carGroup.add(l1);
+          carGroup.add(l2);
+
+          const posX = isGoingNorth ? -4 : 4;
+          carGroup.position.set(posX, 0, -10 - c * 25);
+          if (!isGoingNorth) carGroup.rotation.y = Math.PI;
+
+          this.worldGroup.add(carGroup);
+          this.cars.push({
+            mesh: carGroup,
+            speed: (15 + Math.random() * 10) * (isGoingNorth ? -1 : 1),
+            isNS: true
+          });
+        }
+
+        // East-West Cars (Crossroad)
+        for (let c = 0; c < 4; c++) {
+          const carGroup = new THREE.Group();
+          const isGoingEast = c % 2 === 0;
+
+          const bodyGeo = new THREE.BoxGeometry(4.0, 1.0, 2.0);
+          const bodyMat = new THREE.MeshStandardMaterial({ color: carColors[(c + 2) % carColors.length] });
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          body.position.y = 0.7;
+          carGroup.add(body);
+
+          const posZ = isGoingEast ? -37 : -43;
+          carGroup.position.set(-60 + c * 35, 0, posZ);
+          this.worldGroup.add(carGroup);
+          this.cars.push({
+            mesh: carGroup,
+            speed: (18 + Math.random() * 8) * (isGoingEast ? 1 : -1),
+            isNS: false
+          });
+        }
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t, delta) => {
+            this.cars.forEach(car => {
+              if (car.isNS) {
+                car.mesh.position.z += car.speed * delta;
+                if (car.mesh.position.z < -130) car.mesh.position.z = 10;
+                if (car.mesh.position.z > 10) car.mesh.position.z = -130;
+              } else {
+                car.mesh.position.x += car.speed * delta;
+                if (car.mesh.position.x > 90) car.mesh.position.x = -90;
+                if (car.mesh.position.x < -90) car.mesh.position.x = 90;
+              }
+            });
+          }
+        });
+
+        // 5. Urban Streetlamps
+        for (let sl = -10; sl >= -90; sl -= 20) {
+          [-9, 9].forEach(px => {
+            const lampGeo = new THREE.CylinderGeometry(0.12, 0.15, 5, 8);
+            const lampMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            const lamp = new THREE.Mesh(lampGeo, lampMat);
+            lamp.position.set(px, 2.5, sl);
+            this.worldGroup.add(lamp);
+
+            const bulbGeo = new THREE.SphereGeometry(0.3, 8, 8);
+            const bulbMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+            bulb.position.set(px, 5.1, sl);
+            this.worldGroup.add(bulb);
+          });
+        }
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO 4: AÑO 3000 A 10000 - FUTURO (NEÓN, NAVES VOLADORAS, DOMOS)
+         ------------------------------------------------------------- */
+      buildWorldFuture() {
+        this.clearWorld();
+        this.currentWorldId = 'FUTURE';
+
+        // Sky & Fog (Cyberpunk Sci-Fi neon atmosphere)
+        this.scene.background = new THREE.Color(0x090514);
+        this.scene.fog = new THREE.FogExp2(0x1e0b36, 0.01);
+        this.ambientLight.color.setHex(0xd8b4fe);
+        this.ambientLight.intensity = 0.8;
+        this.dirLight.color.setHex(0x38bdf8);
+        this.dirLight.intensity = 1.4;
+        this.dirLight.position.set(30, 60, -30);
+
+        // 1. Cyber Grid Floor
+        const gridHelper = new THREE.GridHelper(260, 60, 0x06b6d4, 0x581c87);
+        gridHelper.position.y = 0;
+        this.worldGroup.add(gridHelper);
+
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x030712, roughness: 0.2, metalness: 0.9 });
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.05;
+        this.worldGroup.add(ground);
+
+        // 2. Colossal Futuristic Spire Skyscrapers & Neon Lines
+        const spires = [
+          { x: -30, z: -40, h: 55, color: 0x06b6d4 },
+          { x: 30, z: -40, h: 65, color: 0xa855f7 },
+          { x: -50, z: -80, h: 80, color: 0xec4899 },
+          { x: 50, z: -80, h: 75, color: 0x3b82f6 },
+          { x: 0, z: -110, h: 100, color: 0x10b981 }
+        ];
+
+        spires.forEach(sp => {
+          const spireGeo = new THREE.ConeGeometry(8, sp.h, 6);
+          const spireMat = new THREE.MeshStandardMaterial({
+            color: 0x0b0f19,
+            metalness: 0.9,
+            roughness: 0.2
+          });
+          const spire = new THREE.Mesh(spireGeo, spireMat);
+          spire.position.set(sp.x, sp.h / 2, sp.z);
+          spire.castShadow = true;
+          this.worldGroup.add(spire);
+
+          // Glowing neon rings along the spire
+          for (let r = 1; r <= 4; r++) {
+            const ringGeo = new THREE.TorusGeometry(8 * (1 - (r * 0.2)), 0.2, 8, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: sp.color });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.set(sp.x, r * (sp.h * 0.2), sp.z);
+            this.worldGroup.add(ring);
+          }
+        });
+
+        // 3. Glowing Translucent Energy Domes
+        [-20, 20].forEach(dx => {
+          const domeGeo = new THREE.SphereGeometry(10, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+          const domeMat = new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.35,
+            metalness: 0.8,
+            roughness: 0.1,
+            side: THREE.DoubleSide
+          });
+          const dome = new THREE.Mesh(domeGeo, domeMat);
+          dome.position.set(dx, 0, -25);
+          this.worldGroup.add(dome);
+        });
+
+        // 4. FLYING SHIPS / SPEEDERS CRUISING THROUGH SKY HIGHWAYS
+        this.flyingShips = [];
+        const shipCount = 8;
+        for (let s = 0; s < shipCount; s++) {
+          const shipGroup = new THREE.Group();
+
+          // Sleek Arrow Hull
+          const hullGeo = new THREE.ConeGeometry(1.2, 4.5, 4);
+          const hullMat = new THREE.MeshStandardMaterial({
+            color: s % 2 === 0 ? 0x06b6d4 : 0xf43f5e,
+            metalness: 0.9,
+            roughness: 0.2
+          });
+          const hull = new THREE.Mesh(hullGeo, hullMat);
+          hull.rotation.x = Math.PI / 2;
+          shipGroup.add(hull);
+
+          // Plasma Engine Glow Trail
+          const engineGeo = new THREE.SphereGeometry(0.6, 8, 8);
+          const engineMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+          const engine = new THREE.Mesh(engineGeo, engineMat);
+          engine.position.z = 2.4;
+          shipGroup.add(engine);
+
+          const radius = 25 + (s * 8);
+          const speed = (0.5 + Math.random() * 0.5) * (s % 2 === 0 ? 1 : -1);
+          const altitude = 14 + (s * 4);
+
+          this.worldGroup.add(shipGroup);
+          this.flyingShips.push({
+            mesh: shipGroup,
+            radius,
+            speed,
+            altitude,
+            angle: (s / shipCount) * Math.PI * 2
+          });
+        }
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t, delta) => {
+            this.flyingShips.forEach(ship => {
+              ship.angle += ship.speed * delta;
+              ship.mesh.position.x = Math.cos(ship.angle) * ship.radius;
+              ship.mesh.position.z = -50 + Math.sin(ship.angle) * ship.radius * 0.6;
+              ship.mesh.position.y = ship.altitude + Math.sin(t * 2 + ship.radius) * 1.5;
+              // Orient ship towards forward motion
+              ship.mesh.rotation.y = -ship.angle + (ship.speed > 0 ? 0 : Math.PI);
+            });
+          }
+        });
+
+        // 5. Giant Holographic Rotating Orbital Ring in Sky
+        const orbRingGeo = new THREE.TorusGeometry(35, 0.4, 16, 64);
+        const orbRingMat = new THREE.MeshBasicMaterial({ color: 0xec4899, wireframe: true });
+        const orbRing = new THREE.Mesh(orbRingGeo, orbRingMat);
+        orbRing.position.set(0, 45, -90);
+        this.worldGroup.add(orbRing);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            orbRing.rotation.x = t * 0.3;
+            orbRing.rotation.y = t * 0.5;
+          }
+        });
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO ERROR 1: Δ <= 500 - DINOSAURIOS (T-REX, PTERODÁCTILOS, SELVA)
+         ------------------------------------------------------------- */
+      buildWorldDinos() {
+        this.clearWorld();
+        this.currentWorldId = 'DINOS';
+
+        // Sky & Fog (Jurassic emerald jungle mist)
+        this.scene.background = new THREE.Color(0x14532d);
+        this.scene.fog = new THREE.FogExp2(0x166534, 0.014);
+        this.ambientLight.color.setHex(0xdcfce7);
+        this.ambientLight.intensity = 1.0;
+        this.dirLight.color.setHex(0xfef08a);
+        this.dirLight.intensity = 1.4;
+        this.dirLight.position.set(20, 40, 20);
+
+        // 1. Primitive Jungle Terrain
+        const groundGeo = new THREE.PlaneGeometry(280, 280, 50, 50);
+        const pos = groundGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const vx = pos.getX(i);
+          const vy = pos.getY(i);
+          pos.setZ(i, Math.sin(vx * 0.06) * 2 + Math.cos(vy * 0.06) * 2);
+        }
+        groundGeo.computeVertexNormals();
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9, flatShading: true });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.2;
+        ground.receiveShadow = true;
+        this.worldGroup.add(ground);
+
+        // 2. ANIMATED 3D T-REX (TYRANNOSAURUS REX)
+        const trexGroup = new THREE.Group();
+        trexGroup.position.set(0, 0, -22);
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(3.5, 3.8, 6.0);
+        const dinoSkinMat = new THREE.MeshStandardMaterial({ color: 0x4d7c0f, roughness: 0.8, flatShading: true });
+        const body = new THREE.Mesh(bodyGeo, dinoSkinMat);
+        body.position.y = 5.2;
+        body.castShadow = true;
+        trexGroup.add(body);
+
+        // Head & Jaws
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 7.2, 3.2);
+
+        const skullGeo = new THREE.BoxGeometry(2.4, 2.2, 3.8);
+        const skull = new THREE.Mesh(skullGeo, dinoSkinMat);
+        headGroup.add(skull);
+
+        // Sharp Teeth & Lower Jaw
+        const jawGeo = new THREE.BoxGeometry(2.2, 0.8, 3.6);
+        const jawMat = new THREE.MeshStandardMaterial({ color: 0x3f6212 });
+        const lowerJaw = new THREE.Mesh(jawGeo, jawMat);
+        lowerJaw.position.set(0, -1.2, 0.2);
+        headGroup.add(lowerJaw);
+
+        // Eyes
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), eyeMat);
+        eyeL.position.set(-1.25, 0.5, 0.5);
+        const eyeR = eyeL.clone();
+        eyeR.position.x = 1.25;
+        headGroup.add(eyeL);
+        headGroup.add(eyeR);
+
+        trexGroup.add(headGroup);
+
+        // Tail
+        const tailGeo = new THREE.ConeGeometry(1.8, 8, 6);
+        const tail = new THREE.Mesh(tailGeo, dinoSkinMat);
+        tail.position.set(0, 5.2, -6.5);
+        tail.rotation.x = -Math.PI / 2 - 0.2;
+        trexGroup.add(tail);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(1.2, 4.5, 2.0);
+        const legL = new THREE.Mesh(legGeo, dinoSkinMat);
+        legL.position.set(-1.8, 2.25, 0);
+        const legR = legL.clone();
+        legR.position.x = 1.8;
+        trexGroup.add(legL);
+        trexGroup.add(legR);
+
+        this.worldGroup.add(trexGroup);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            // T-Rex breathing and head roaring animation
+            headGroup.rotation.x = Math.sin(t * 2) * 0.15;
+            lowerJaw.rotation.x = Math.sin(t * 3) * 0.2 + 0.1;
+            tail.rotation.y = Math.sin(t * 2) * 0.25;
+            trexGroup.position.y = Math.abs(Math.sin(t * 2)) * 0.2;
+          }
+        });
+
+        // 3. PTERODACTYLS FLYING IN CIRCLES ACROSS SKY
+        this.pterodactyls = [];
+        for (let p = 0; p < 3; p++) {
+          const pteroGroup = new THREE.Group();
+
+          // Body
+          const pBody = new THREE.Mesh(
+            new THREE.ConeGeometry(0.4, 2.0, 4),
+            new THREE.MeshStandardMaterial({ color: 0xa16207 })
+          );
+          pBody.rotation.x = Math.PI / 2;
+          pteroGroup.add(pBody);
+
+          // Wings (Animated flapping)
+          const wingGeo = new THREE.PlaneGeometry(3.5, 1.2);
+          const wingMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, side: THREE.DoubleSide });
+          const wingL = new THREE.Mesh(wingGeo, wingMat);
+          wingL.position.set(-1.8, 0, 0);
+          const wingR = new THREE.Mesh(wingGeo, wingMat);
+          wingR.position.set(1.8, 0, 0);
+          pteroGroup.add(wingL);
+          pteroGroup.add(wingR);
+
+          pteroGroup.position.set(0, 18 + p * 4, -40);
+          this.worldGroup.add(pteroGroup);
+          this.pterodactyls.push({ group: pteroGroup, wingL, wingR, speed: 0.8 + p * 0.2, radius: 25 + p * 8, offset: p * 2 });
+        }
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            this.pterodactyls.forEach(pt => {
+              const angle = t * pt.speed + pt.offset;
+              pt.group.position.x = Math.cos(angle) * pt.radius;
+              pt.group.position.z = -40 + Math.sin(angle) * pt.radius;
+              pt.group.rotation.y = -angle + Math.PI / 2;
+              // Wing flap
+              const flap = Math.sin(t * 8 + pt.offset) * 0.5;
+              pt.wingL.rotation.z = flap;
+              pt.wingR.rotation.z = -flap;
+            });
+          }
+        });
+
+        // 4. Giant Prehistoric Fern Trees & Cycads
+        for (let f = 0; f < 25; f++) {
+          const fernGroup = new THREE.Group();
+          const fx = (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 40);
+          const fz = -10 - Math.random() * 80;
+          fernGroup.position.set(fx, 0, fz);
+
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.6, 6, 8),
+            new THREE.MeshStandardMaterial({ color: 0x78350f })
+          );
+          trunk.position.y = 3;
+          fernGroup.add(trunk);
+
+          for (let l = 0; l < 8; l++) {
+            const leaf = new THREE.Mesh(
+              new THREE.ConeGeometry(1.8, 4.5, 4),
+              new THREE.MeshStandardMaterial({ color: 0x16a34a, flatShading: true })
+            );
+            leaf.position.set(0, 6, 0);
+            leaf.rotation.x = 0.9;
+            leaf.rotation.y = (l / 8) * Math.PI * 2;
+            fernGroup.add(leaf);
+          }
+          this.worldGroup.add(fernGroup);
+        }
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO ERROR 2: Δ 501-2000 - ESPACIO PROFUNDO (ASTEROIDES, PLANETA ANILLADO)
+         ------------------------------------------------------------- */
+      buildWorldSpace() {
+        this.clearWorld();
+        this.currentWorldId = 'SPACE';
+
+        // Sky & Fog (Deep Cosmic Void)
+        this.scene.background = new THREE.Color(0x020208);
+        this.scene.fog = new THREE.FogExp2(0x060614, 0.006);
+        this.ambientLight.color.setHex(0x6366f1);
+        this.ambientLight.intensity = 0.7;
+        this.dirLight.color.setHex(0x38bdf8);
+        this.dirLight.intensity = 1.2;
+        this.dirLight.position.set(20, 30, -20);
+
+        // 1. Thousands of Glowing Stars & Nebula Dust
+        const starsGeo = new THREE.BufferGeometry();
+        const starCount = 1500;
+        const starPos = new Float32Array(starCount * 3);
+        const starCols = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount; i++) {
+          starPos[i * 3] = (Math.random() - 0.5) * 400;
+          starPos[i * 3 + 1] = (Math.random() - 0.5) * 300 + 40;
+          starPos[i * 3 + 2] = (Math.random() - 0.5) * 400 - 80;
+
+          starCols[i * 3] = 0.6 + Math.random() * 0.4;
+          starCols[i * 3 + 1] = 0.7 + Math.random() * 0.3;
+          starCols[i * 3 + 2] = 1.0;
+        }
+
+        starsGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        starsGeo.setAttribute('color', new THREE.BufferAttribute(starCols, 3));
+
+        const starsMat = new THREE.PointsMaterial({ size: 0.8, vertexColors: true });
+        const starField = new THREE.Points(starsGeo, starsMat);
+        this.worldGroup.add(starField);
+
+        // 2. Giant Ringed Planet (Saturn style) in Horizon
+        const planetGroup = new THREE.Group();
+        planetGroup.position.set(40, 25, -120);
+
+        const planetGeo = new THREE.SphereGeometry(18, 32, 32);
+        const planetMat = new THREE.MeshStandardMaterial({
+          color: 0xe0e7ff,
+          roughness: 0.6,
+          metalness: 0.2
+        });
+        const planet = new THREE.Mesh(planetGeo, planetMat);
+        planetGroup.add(planet);
+
+        // Planet Rings
+        const ringGeo = new THREE.RingGeometry(22, 36, 48);
+        const ringMat = new THREE.MeshStandardMaterial({
+          color: 0xa5b4fc,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.8
+        });
+        const rings = new THREE.Mesh(ringGeo, ringMat);
+        rings.rotation.x = Math.PI / 2.5;
+        planetGroup.add(rings);
+
+        this.worldGroup.add(planetGroup);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            planetGroup.rotation.y = t * 0.05;
+          }
+        });
+
+        // 3. 3D ASTEROID FIELD TUMBLING SLOWLY AT DIFFERENT DEPTHS
+        this.asteroids = [];
+        for (let a = 0; a < 25; a++) {
+          const size = 1.5 + Math.random() * 4;
+          const astGeo = new THREE.DodecahedronGeometry(size, 1);
+          const astMat = new THREE.MeshStandardMaterial({
+            color: 0x64748b,
+            roughness: 0.9,
+            metalness: 0.3,
+            flatShading: true
+          });
+          const asteroid = new THREE.Mesh(astGeo, astMat);
+
+          const posX = (Math.random() - 0.5) * 100;
+          const posY = -5 + Math.random() * 30;
+          const posZ = -15 - Math.random() * 90;
+
+          asteroid.position.set(posX, posY, posZ);
+          this.worldGroup.add(asteroid);
+
+          this.asteroids.push({
+            mesh: asteroid,
+            rotX: (Math.random() - 0.5) * 0.8,
+            rotY: (Math.random() - 0.5) * 0.8,
+            rotZ: (Math.random() - 0.5) * 0.8
+          });
+        }
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t, delta) => {
+            this.asteroids.forEach(ast => {
+              ast.mesh.rotation.x += ast.rotX * delta;
+              ast.mesh.rotation.y += ast.rotY * delta;
+              ast.mesh.rotation.z += ast.rotZ * delta;
+            });
+          }
+        });
+
+        // 4. Orbiting Science Satellite with Blinking Beacon
+        const satGroup = new THREE.Group();
+        satGroup.position.set(-20, 15, -35);
+
+        const satBody = new THREE.Mesh(
+          new THREE.BoxGeometry(2, 2, 2),
+          new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 })
+        );
+        satGroup.add(satBody);
+
+        // Solar Panels
+        const panelGeo = new THREE.BoxGeometry(6, 1.4, 0.1);
+        const panelMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.8 });
+        const panels = new THREE.Mesh(panelGeo, panelMat);
+        satGroup.add(panels);
+
+        this.worldGroup.add(satGroup);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            satGroup.rotation.y = t * 0.6;
+            satGroup.position.y = 15 + Math.sin(t) * 1.5;
+          }
+        });
+      }
+
+      /* -------------------------------------------------------------
+         MUNDO ERROR 3: Δ > 2000 O < 0 - LAVA / VOLCÁNICO / SUB-CERO
+         ------------------------------------------------------------- */
+      buildWorldLava() {
+        this.clearWorld();
+        this.currentWorldId = 'LAVA';
+
+        // Sky & Fog (Fiery crimson volcanic haze)
+        this.scene.background = new THREE.Color(0x380500);
+        this.scene.fog = new THREE.FogExp2(0x450a0a, 0.015);
+        this.ambientLight.color.setHex(0xf87171);
+        this.ambientLight.intensity = 0.9;
+        this.dirLight.color.setHex(0xf97316);
+        this.dirLight.intensity = 1.5;
+        this.dirLight.position.set(20, 35, 10);
+
+        // 1. Scorched Cracked Basalt Terrain
+        const groundGeo = new THREE.PlaneGeometry(280, 280, 50, 50);
+        const pos = groundGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const vx = pos.getX(i);
+          const vy = pos.getY(i);
+          pos.setZ(i, Math.sin(vx * 0.08) * 3 + Math.cos(vy * 0.08) * 3);
+        }
+        groundGeo.computeVertexNormals();
+        const groundMat = new THREE.MeshStandardMaterial({
+          color: 0x1c1917,
+          roughness: 0.95,
+          flatShading: true
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.2;
+        ground.receiveShadow = true;
+        this.worldGroup.add(ground);
+
+        // 2. FLOWING RIVERS OF LAVA (Animated Glowing Magma Channels)
+        const lavaGeo = new THREE.PlaneGeometry(24, 220, 20, 40);
+        const lavaMat = new THREE.MeshStandardMaterial({
+          color: 0xef4444,
+          emissive: 0xdc2626,
+          emissiveIntensity: 0.8,
+          roughness: 0.2
+        });
+        const lavaRiver = new THREE.Mesh(lavaGeo, lavaMat);
+        lavaRiver.rotation.x = -Math.PI / 2;
+        lavaRiver.rotation.z = -0.4;
+        lavaRiver.position.set(12, 0.05, -30);
+        this.worldGroup.add(lavaRiver);
+
+        // Secondary cross lava fissure
+        const lavaCrossGeo = new THREE.PlaneGeometry(16, 180);
+        const lavaCross = new THREE.Mesh(lavaCrossGeo, lavaMat);
+        lavaCross.rotation.x = -Math.PI / 2;
+        lavaCross.rotation.z = 0.5;
+        lavaCross.position.set(-20, 0.06, -50);
+        this.worldGroup.add(lavaCross);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t) => {
+            const glow = 0.7 + Math.sin(t * 4) * 0.3;
+            lavaMat.emissiveIntensity = glow;
+            lavaMat.color.setHSL(0.04, 1.0, 0.45 + Math.sin(t * 3) * 0.1);
+          }
+        });
+
+        // 3. Volcanic Peaks in Horizon
+        for (let v = 0; v < 6; v++) {
+          const volGeo = new THREE.ConeGeometry(18 + v * 4, 30 + v * 5, 8);
+          const volMat = new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.9, flatShading: true });
+          const vol = new THREE.Mesh(volGeo, volMat);
+          vol.position.set(-80 + v * 35, 15, -110 - v * 10);
+          this.worldGroup.add(vol);
+
+          // Fiery Caldera Top
+          const caldGeo = new THREE.CylinderGeometry(4, 0.1, 2, 8);
+          const caldMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+          const cald = new THREE.Mesh(caldGeo, caldMat);
+          cald.position.set(vol.position.x, 30 + v * 5, vol.position.z);
+          this.worldGroup.add(cald);
+        }
+
+        // 4. Rising Flame & Smoke Particles
+        const partGeo = new THREE.BufferGeometry();
+        const partCount = 400;
+        const partPos = new Float32Array(partCount * 3);
+        for (let i = 0; i < partCount; i++) {
+          partPos[i * 3] = (Math.random() - 0.5) * 80;
+          partPos[i * 3 + 1] = Math.random() * 20;
+          partPos[i * 3 + 2] = -10 - Math.random() * 80;
+        }
+        partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+        const partMat = new THREE.PointsMaterial({
+          color: 0xf97316,
+          size: 0.6,
+          transparent: true,
+          opacity: 0.8
+        });
+        const particles = new THREE.Points(partGeo, partMat);
+        this.worldGroup.add(particles);
+
+        this.animatedObjects.push({
+          isWorldObject: true,
+          update: (t, delta) => {
+            const arr = particles.geometry.attributes.position.array;
+            for (let i = 0; i < partCount; i++) {
+              arr[i * 3 + 1] += delta * 6;
+              if (arr[i * 3 + 1] > 25) {
+                arr[i * 3 + 1] = 0;
+              }
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+          }
+        });
+      }
+
+      /* -------------------------------------------------------------
+         START PORTAL TRAVEL SEQUENCE (2 SECONDS)
+         ------------------------------------------------------------- */
+      startWarpTravel(onComplete) {
+        this.isTraveling = true;
+        this.warpStartTime = this.clock.getElapsedTime();
+
+        // 1. Trigger Tesla Electric Sparks
+        this.triggerTeslaLightning(true);
+        audioEngine.playTeslaSparks(1.8);
+
+        // 2. Hide World, Show Vortex Tunnel
+        this.worldGroup.visible = false;
+        this.vortexGroup.visible = true;
+
+        // Overlay & Sound
+        audioEngine.playWarpTunnel(2.0);
+        const overlay = document.getElementById('warp-overlay');
+        if (overlay) overlay.style.opacity = '1';
+
+        // Camera animation zoom into vortex
+        const origPos = this.camera.position.clone();
+        this.camera.position.set(0, 3, 10);
+        this.controls.target.set(0, 3, -20);
+
+        setTimeout(() => {
+          // Stop sparks & Hide Vortex
+          this.triggerTeslaLightning(false);
+          this.vortexGroup.visible = false;
+          this.worldGroup.visible = true;
+          this.isTraveling = false;
+
+          if (overlay) overlay.style.opacity = '0';
+
+          // Restore camera position
+          this.camera.position.copy(origPos);
+          this.controls.target.set(0, 3, 0);
+
+          if (onComplete) onComplete();
+        }, 2000);
+      }
+
+      /* -------------------------------------------------------------
+         RENDER LOOP
+         ------------------------------------------------------------- */
+      animate() {
+        requestAnimationFrame(this.animate);
+
+        const delta = this.clock.getDelta();
+        const time = this.clock.getElapsedTime();
+
+        // Update Controls
+        this.controls.update();
+
+        // Run Registered Code Animations
+        for (let i = 0; i < this.animatedObjects.length; i++) {
+          this.animatedObjects[i].update(time, delta);
+        }
+
+        // Warp Vortex Tunnel Animation
+        if (this.isTraveling && this.vortexGroup.visible) {
+          for (let r = 0; r < this.vortexRings.length; r++) {
+            const ring = this.vortexRings[r];
+            ring.rotation.z += (r % 2 === 0 ? 1 : -1) * delta * 2.5;
+            ring.position.z += delta * 60;
+            if (ring.position.z > 5) {
+              ring.position.z = -120;
+            }
+          }
+          if (this.vortexStars) {
+            this.vortexStars.rotation.z += delta * 1.5;
+          }
+        }
+
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    /* =========================================================================
+       3. GAME LOGIC, PEDAGOGICAL MISSIONS & HUD CONTROLLER
+       ========================================================================= */
+    const MISSIONS = [
+      {
+        id: 1,
+        title: "El Faraón del Tiempo",
+        startYear: 450,
+        targetYear: 0,
+        requiredOp: "-",
+        requiredJump: 450,
+        targetEra: "EGYPT",
+        description: "El Faraón necesita regresar al Año 0 (Egipto Antiguo) junto al Nilo y las Grandes Pirámides.",
+        hint: "Estás en el Año 450 y debes ir al Año 0. ¿Cuánto debes restar para llegar exactamente? (450 - 450 = 0).",
+        funFact: "En el Año 0, el Antiguo Egipto florecía a orillas del majestuoso Río Nilo. Los egipcios usaban las aguas del río para regar sus cultivos y construyeron monumentales pirámides alineadas con las estrellas."
+      },
+      {
+        id: 2,
+        title: "Rumbo al Castillo Medieval",
+        startYear: 0,
+        targetYear: 1200,
+        requiredOp: "+",
+        requiredJump: 1200,
+        targetEra: "MEDIEVAL",
+        description: "¡Viaja del Año 0 a la Época Medieval (Año 1200) para visitar la fortaleza de caballeros!",
+        hint: "Estás en el Año 0 y la meta es 1200. Debes SUMAR (+) para avanzar en el tiempo. (0 + 1200 = 1200).",
+        funFact: "En el Año 1200, los castillos de piedra protegían las aldeas con murallas almenadas y antorchas. Los molinos de viento eran la más alta tecnología para moler granos de trigo."
+      },
+      {
+        id: 3,
+        title: "El Gran Salto al Año 2000",
+        startYear: 1200,
+        targetYear: 2000,
+        requiredOp: "+",
+        requiredJump: 800,
+        targetEra: "CITY",
+        description: "¡Avancemos a la Era Moderna (Año 2000) con rascacielos iluminados y automóviles en las calles!",
+        hint: "Estás en el Año 1200 y quieres llegar al 2000. Calcula: ¿Cuánto le falta a 1200 para llegar a 2000? ¡2000 - 1200 = 800!",
+        funFact: "El Año 2000 marcó la llegada del nuevo milenio. Las ciudades se llenaron de computadoras, redes globales e internet que cambiaron la historia para siempre."
+      },
+      {
+        id: 4,
+        title: "Destino: Metrópolis Galáctica 3000",
+        startYear: 2000,
+        targetYear: 3000,
+        requiredOp: "+",
+        requiredJump: 1000,
+        targetEra: "FUTURE",
+        description: "¡Atraviesa un milenio entero para llegar a la Ciudad Futurista del Año 3000 con naves voladoras!",
+        hint: "Del Año 2000 al Año 3000 hay un salto de 1 Milenio (1000 años). ¡Suma 1000 a 2000!",
+        funFact: "En el Año 3000, la humanidad viaja en veloces speeders aéreos a través de rascacielos de luz de neón y domos de energía translúcidos."
+      },
+      {
+        id: 5,
+        title: "Regreso Histórico al Medievo",
+        startYear: 3000,
+        targetYear: 1200,
+        requiredOp: "-",
+        requiredJump: 1800,
+        targetEra: "MEDIEVAL",
+        description: "Un crononauta extraviado dejó su libro en el Año 1200. ¡Viaja hacia el pasado desde el Año 3000!",
+        hint: "Para retroceder de 3000 a 1200, debes RESTAR (-). 3000 - 1200 = 1800 años de salto.",
+        funFact: "¿Sabías que restar años en el tiempo se llama viaje al pasado? ¡La máquina cronológica reduce la energía cuántica!"
+      },
+      {
+        id: 6,
+        title: "Crono-Salto Máximo: Año 10000",
+        startYear: 0,
+        targetYear: 10000,
+        requiredOp: "+",
+        requiredJump: 10000,
+        targetEra: "FUTURE",
+        description: "¡La misión final de los Crononautas! Un salto épico de 10,000 años hacia el futuro supremo.",
+        hint: "Desde el Año 0 hasta el Año 10000: ¡Debes sumar exactamente 10000 años!",
+        funFact: "En el Año 10000, la civilización ha creado redes interestelares y estaciones orbitales infinitas."
+      }
+    ];
+
+    class GameController {
+      constructor() {
+        this.renderer = null;
+        this.currentMissionIndex = 0;
+        this.gameMode = 'campaign'; // 'campaign', 'free', 'lab'
+        this.score = 0;
+        this.streak = 0;
+        this.isHudCollapsed = false;
+
+        // Current calculation inputs
+        this.currentYear = 450;
+        this.targetYear = 0;
+        this.operation = '-';
+        this.jumpValue = 450;
+        this.calculatedDestYear = 0;
+
+        // Active world info
+        this.activeEra = 'EGYPT';
+        this.activeDelta = 0;
+      }
+
+      init(renderer) {
+        this.renderer = renderer;
+        this.loadMission(0);
+        this.renderMissionsList();
+        this.updateCalcPreview();
+        this.renderer.buildWorldEgypt();
+        audioEngine.setEraAmbient('EGYPT');
+      }
+
+      loadMission(index) {
+        this.currentMissionIndex = index % MISSIONS.length;
+        const m = MISSIONS[this.currentMissionIndex];
+
+        this.currentYear = m.startYear;
+        this.targetYear = m.targetYear;
+        this.operation = m.requiredOp;
+        this.jumpValue = m.requiredJump;
+
+        // Update UI
+        document.getElementById('target-mission-name').innerText = m.title;
+        document.getElementById('target-year-badge').innerText = `META: ${m.targetYear}`;
+        document.getElementById('display-current-year').innerText = this.currentYear;
+        document.getElementById('display-current-era').innerText = this.getEraName(this.currentYear);
+        document.getElementById('input-jump').value = this.jumpValue;
+        document.getElementById('pedagogical-hint').innerText = m.hint;
+
+        this.setOperation(this.operation);
+        this.updateCalcPreview();
+        this.hideArrivalBanner();
+      }
+
+      getEraName(year) {
+        if (year === 0) return "Egipto Antiguo";
+        if (year <= 1400) return "Era Medieval";
+        if (year <= 2100) return "Era Moderna";
+        return "Futuro Distante";
+      }
+
+      setOperation(op) {
+        audioEngine.playClick(900, 0.03);
+        this.operation = op;
+        const btnAdd = document.getElementById('op-btn-add');
+        const btnSub = document.getElementById('op-btn-sub');
+        const symb = document.getElementById('display-op-symbol');
+
+        if (op === '+') {
+          btnAdd.className = "px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/50";
+          btnSub.className = "px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all text-slate-400 hover:text-white";
+          symb.innerText = '+';
+          symb.className = 'text-xl font-bold font-scifi text-emerald-400';
+        } else {
+          btnSub.className = "px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all bg-rose-500 text-slate-950 shadow-md shadow-rose-500/50";
+          btnAdd.className = "px-3 py-1 rounded-lg text-xs md:text-sm font-black font-scifi transition-all text-slate-400 hover:text-white";
+          symb.innerText = '-';
+          symb.className = 'text-xl font-bold font-scifi text-rose-400';
+        }
+
+        this.updateCalcPreview();
+      }
+
+      onJumpInputChange(val) {
+        this.jumpValue = Math.max(0, parseInt(val) || 0);
+        audioEngine.playDial();
+        this.updateCalcPreview();
+      }
+
+      adjustJump(delta) {
+        audioEngine.playDial();
+        this.jumpValue = Math.max(0, this.jumpValue + delta);
+        document.getElementById('input-jump').value = this.jumpValue;
+        this.updateCalcPreview();
+      }
+
+      setJumpExact(val) {
+        audioEngine.playDial();
+        this.jumpValue = val;
+        document.getElementById('input-jump').value = this.jumpValue;
+        this.updateCalcPreview();
+      }
+
+      updateCalcPreview() {
+        if (this.operation === '+') {
+          this.calculatedDestYear = this.currentYear + this.jumpValue;
+        } else {
+          this.calculatedDestYear = this.currentYear - this.jumpValue;
+        }
+
+        const dispCalc = document.getElementById('display-calc-result');
+        const dispStatus = document.getElementById('display-calc-status');
+        const calcBox = document.getElementById('target-calc-box');
+        const btnActivate = document.getElementById('btn-activate');
+
+        dispCalc.innerText = this.calculatedDestYear;
+
+        // Check if destination is below 0 (Error Sub-cero / Límite Mínimo)
+        if (this.calculatedDestYear < 0) {
+          dispStatus.innerText = "⚠️ ¡Error! Menor al Año 0 (Sobrecarga de Lava)";
+          dispStatus.className = "text-[10px] font-tech text-rose-400 font-bold truncate";
+          calcBox.className = "number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden glow-red border-red-500";
+          btnActivate.className = "btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 border-2 border-red-300 text-white font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_30px_rgba(239,68,68,0.6)] flex items-center justify-center gap-3";
+          return;
+        }
+
+        // Check difference with Target
+        const delta = Math.abs(this.calculatedDestYear - this.targetYear);
+
+        if (delta === 0) {
+          dispStatus.innerText = "🎯 ¡Coincide Exacto con la Meta!";
+          dispStatus.className = "text-[10px] font-tech text-emerald-300 font-bold truncate";
+          calcBox.className = "number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden glow-green border-emerald-500";
+          btnActivate.className = "btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 border-2 border-emerald-200 text-slate-950 font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_35px_rgba(16,185,129,0.7)] flex items-center justify-center gap-3";
+        } else if (delta <= 500) {
+          dispStatus.innerText = `Desvío leve (Δ=${delta}): Llegarás a Dinosaurios`;
+          dispStatus.className = "text-[10px] font-tech text-amber-300 font-bold truncate";
+          calcBox.className = "number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden glow-amber border-amber-500";
+          btnActivate.className = "btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 border-2 border-cyan-200 text-white font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_30px_rgba(6,182,212,0.6)] flex items-center justify-center gap-3";
+        } else if (delta <= 2000) {
+          dispStatus.innerText = `Desvío medio (Δ=${delta}): Llegarás al Espacio`;
+          dispStatus.className = "text-[10px] font-tech text-indigo-300 font-bold truncate";
+          calcBox.className = "number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden glow-purple border-indigo-500";
+          btnActivate.className = "btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 border-2 border-cyan-200 text-white font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_30px_rgba(6,182,212,0.6)] flex items-center justify-center gap-3";
+        } else {
+          dispStatus.innerText = `Gran desvío (Δ=${delta}): Llegarás a Lava Caliente`;
+          dispStatus.className = "text-[10px] font-tech text-rose-300 font-bold truncate";
+          calcBox.className = "number-display rounded-2xl p-2.5 md:p-3 text-center relative overflow-hidden glow-red border-red-500";
+          btnActivate.className = "btn-3d flex-1 py-3 md:py-4 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-red-700 border-2 border-red-300 text-white font-black text-sm md:text-lg font-scifi tracking-widest shadow-[0_0_30px_rgba(239,68,68,0.6)] flex items-center justify-center gap-3";
+        }
+      }
+
+      /* -------------------------------------------------------------
+         TRIGGER TRAVEL SEQUENCE
+         ------------------------------------------------------------- */
+      triggerTravel() {
+        audioEngine.ensureContext();
+
+        // Warp text setup
+        const warpSpeedText = document.getElementById('warp-speed-text');
+        const warpCalcDisplay = document.getElementById('warp-calc-display');
+        warpSpeedText.innerText = `VIAJANDO AL AÑO ${this.calculatedDestYear}...`;
+        warpCalcDisplay.innerText = `${this.currentYear} ${this.operation} ${this.jumpValue} = ${this.calculatedDestYear}`;
+
+        // Collapse HUD during travel to see full screen
+        this.collapseHud(true);
+
+        this.renderer.startWarpTravel(() => {
+          this.onTravelArrived();
+        });
+      }
+
+      onTravelArrived() {
+        const dest = this.calculatedDestYear;
+        const target = this.targetYear;
+        const delta = Math.abs(dest - target);
+        this.activeDelta = delta;
+
+        // Sub-zero check or Huge error (> 2000)
+        if (dest < 0 || delta > 2000) {
+          this.renderer.buildWorldLava();
+          audioEngine.setEraAmbient('LAVA');
+          audioEngine.playArrivalError();
+          this.showArrivalBanner({
+            isSuccess: false,
+            emoji: "🌋",
+            badge: dest < 0 ? "ERROR: LÍMITE SUB-CERO (<0)" : "DESVÍO CRÍTICO (Δ > 2000)",
+            badgeClass: "bg-red-500/30 text-red-300 border border-red-500/50",
+            title: `AÑO ${dest}: Mundo de Lava y Volcanes`,
+            desc: dest < 0 
+              ? `¡Cálculo negativo! La máquina del tiempo no puede viajar antes del Año 0 y cayó en magma hirviendo.`
+              : `Has fallado por ${delta} años. El desajuste masivo expulsó la nave al mundo de lava volcánica.`,
+            deltaTag: `Δ = ${delta} años`,
+            cardGlow: "glow-red border-red-500 bg-red-950/80"
+          });
+          this.streak = 0;
+        } 
+        // Asteroid Space Error (501 - 2000)
+        else if (delta > 500 && delta <= 2000) {
+          this.renderer.buildWorldSpace();
+          audioEngine.setEraAmbient('SPACE');
+          audioEngine.playArrivalError();
+          this.showArrivalBanner({
+            isSuccess: false,
+            emoji: "🪐",
+            badge: "DESVÍO MEDIO (Δ 501-2000)",
+            badgeClass: "bg-indigo-500/30 text-indigo-300 border border-indigo-500/50",
+            title: `AÑO ${dest}: Espacio Profundo y Asteroides`,
+            desc: `Desvío de ${delta} años. Quedaste orbitando asteroides y un gigante gaseoso. ¡Ajusta tu suma o resta!`,
+            deltaTag: `Δ = ${delta} años`,
+            cardGlow: "glow-purple border-indigo-500 bg-indigo-950/80"
+          });
+          this.streak = 0;
+        }
+        // Dinosaur Error (1 - 500)
+        else if (delta > 0 && delta <= 500) {
+          this.renderer.buildWorldDinos();
+          audioEngine.setEraAmbient('DINO');
+          audioEngine.playArrivalError();
+          this.showArrivalBanner({
+            isSuccess: false,
+            emoji: "🦖",
+            badge: "DESVÍO LEVE (Δ <= 500)",
+            badgeClass: "bg-amber-500/30 text-amber-300 border border-amber-500/50",
+            title: `AÑO ${dest}: Selva del T-Rex y Pterodáctilos`,
+            desc: `¡Muy cerca! Por solo ${delta} años caíste en la época jurásica. Cuidado con el T-Rex.`,
+            deltaTag: `Δ = ${delta} años`,
+            cardGlow: "glow-amber border-amber-500 bg-amber-950/80"
+          });
+          this.streak = 0;
+        }
+        // EXACT SUCCESS (Δ == 0)
+        else {
+          audioEngine.playArrivalSuccess();
+          this.score += 100;
+          this.streak += 1;
+
+          // Determine exact historical era
+          if (dest === 0) {
+            this.renderer.buildWorldEgypt();
+            audioEngine.setEraAmbient('EGYPT');
+            this.showArrivalBanner({
+              isSuccess: true,
+              emoji: "🏛️",
+              badge: "¡LLEGADA PERFECTA!",
+              badgeClass: "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50",
+              title: `AÑO 0: Antiguo Egipto y el Río Nilo`,
+              desc: `¡Cálculo exacto! Contempla las Grandes Pirámides, el Nilo resplandeciente y el sol dorado.`,
+              deltaTag: "Δ = 0 (¡EXACTO!)",
+              cardGlow: "glow-green border-emerald-400 bg-slate-950/85"
+            });
+          } else if (dest <= 1400) {
+            this.renderer.buildWorldMedieval();
+            audioEngine.setEraAmbient('MEDIEVAL');
+            this.showArrivalBanner({
+              isSuccess: true,
+              emoji: "🏰",
+              badge: "¡LLEGADA PERFECTA!",
+              badgeClass: "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50",
+              title: `AÑO ${dest}: Fortaleza Medieval y Antorchas`,
+              desc: `¡Victoria temporal! Murallas de piedra, caballeros y molinos de viento en los valles.`,
+              deltaTag: "Δ = 0 (¡EXACTO!)",
+              cardGlow: "glow-green border-emerald-400 bg-slate-950/85"
+            });
+          } else if (dest <= 2100) {
+            this.renderer.buildWorldCity();
+            audioEngine.setEraAmbient('CITY');
+            this.showArrivalBanner({
+              isSuccess: true,
+              emoji: "🏙️",
+              badge: "¡LLEGADA PERFECTA!",
+              badgeClass: "bg-emerald-500/30 text-emerald-300 border border-emerald-500/50",
+              title: `AÑO ${dest}: Ciudad Moderna y Asfalto`,
+              desc: `¡Éxito total! Rascacielos iluminados y automóviles en movimiento por las avenidas.`,
+              deltaTag: "Δ = 0 (¡EXACTO!)",
+              cardGlow: "glow-green border-emerald-400 bg-slate-950/85"
+            });
+          } else {
+            this.renderer.buildWorldFuture();
+            audioEngine.setEraAmbient('FUTURE');
+            this.showArrivalBanner({
+              isSuccess: true,
+              emoji: "🛸",
+              badge: "¡LLEGADA PERFECTA!",
+              badgeClass: "bg-cyan-500/30 text-cyan-300 border border-cyan-500/50",
+              title: `AÑO ${dest}: Metrópolis del Futuro y Naves`,
+              desc: `¡Increíble! Spires de neón, domos de energía y naves voladoras surcando el cielo.`,
+              deltaTag: "Δ = 0 (¡EXACTO!)",
+              cardGlow: "glow-cyan border-cyan-400 bg-slate-950/85"
+            });
+          }
+
+          // Update current year to destination for the next jump!
+          this.currentYear = dest;
+          document.getElementById('display-current-year').innerText = this.currentYear;
+          document.getElementById('display-current-era').innerText = this.getEraName(this.currentYear);
+        }
+
+        // Update score display
+        document.getElementById('score-val').innerText = this.score;
+        document.getElementById('streak-val').innerText = this.streak;
+      }
+
+      showArrivalBanner(info) {
+        const banner = document.getElementById('arrival-banner');
+        const card = document.getElementById('banner-card');
+        const emoji = document.getElementById('banner-emoji');
+        const badge = document.getElementById('banner-badge');
+        const deltaTag = document.getElementById('banner-delta-tag');
+        const title = document.getElementById('banner-title');
+        const desc = document.getElementById('banner-desc');
+        const btnNext = document.getElementById('btn-banner-next');
+
+        emoji.innerText = info.emoji;
+        badge.innerText = info.badge;
+        badge.className = `text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-tech ${info.badgeClass}`;
+        deltaTag.innerText = info.deltaTag;
+        title.innerText = info.title;
+        desc.innerText = info.desc;
+        card.className = `rounded-2xl p-3 md:p-4 backdrop-blur-xl border-2 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-3 text-white transition-all ${info.cardGlow}`;
+
+        if (info.isSuccess) {
+          btnNext.style.display = 'flex';
+        } else {
+          btnNext.style.display = 'none';
+        }
+
+        banner.style.opacity = '1';
+        banner.style.pointerEvents = 'auto';
+        banner.style.transform = 'translate(-50%, 0)';
+      }
+
+      hideArrivalBanner() {
+        const banner = document.getElementById('arrival-banner');
+        banner.style.opacity = '0';
+        banner.style.pointerEvents = 'none';
+        banner.style.transform = 'translate(-50%, -16px)';
+      }
+
+      nextMission() {
+        audioEngine.playClick(1000, 0.05);
+        this.currentMissionIndex = (this.currentMissionIndex + 1) % MISSIONS.length;
+        this.loadMission(this.currentMissionIndex);
+        this.collapseHud(false);
+      }
+
+      openControlPanel() {
+        audioEngine.playClick(800, 0.04);
+        this.collapseHud(false);
+        this.hideArrivalBanner();
+      }
+
+      toggleHudCollapse() {
+        this.isHudCollapsed = !this.isHudCollapsed;
+        this.collapseHud(this.isHudCollapsed);
+      }
+
+      collapseHud(collapse) {
+        this.isHudCollapsed = collapse;
+        const colDiv = document.getElementById('hud-collapsible');
+        const icon = document.getElementById('collapse-icon');
+        const text = document.getElementById('collapse-text');
+
+        if (collapse) {
+          colDiv.style.maxHeight = '0px';
+          colDiv.style.opacity = '0';
+          colDiv.style.overflow = 'hidden';
+          colDiv.style.marginTop = '0px';
+          icon.innerText = '▲';
+          text.innerText = 'Desplegar';
+        } else {
+          colDiv.style.maxHeight = '500px';
+          colDiv.style.opacity = '1';
+          colDiv.style.overflow = 'visible';
+          colDiv.style.marginTop = '8px';
+          icon.innerText = '▼';
+          text.innerText = 'Minimizar';
+        }
+      }
+
+      toggleAutoRotate() {
+        audioEngine.playClick(700, 0.04);
+        this.renderer.controls.autoRotate = !this.renderer.controls.autoRotate;
+        this.renderer.controls.autoRotateSpeed = 1.2;
+        const btn = document.getElementById('btn-autorotate');
+        if (this.renderer.controls.autoRotate) {
+          btn.className = "btn-3d w-10 h-10 rounded-full bg-cyan-600 border border-cyan-200 text-white flex items-center justify-center shadow-lg text-sm";
+        } else {
+          btn.className = "btn-3d w-10 h-10 rounded-full bg-slate-900/80 backdrop-blur-md border border-cyan-500/40 text-cyan-300 flex items-center justify-center shadow-lg text-sm";
+        }
+      }
+
+      resetCamera() {
+        audioEngine.playClick(900, 0.03);
+        this.renderer.camera.position.set(0, 8, 20);
+        this.renderer.controls.target.set(0, 3, 0);
+      }
+
+      toggleInfoModal() {
+        audioEngine.playClick(800, 0.03);
+        const modal = document.getElementById('modal-info');
+        const isOpen = modal.style.opacity === '1';
+
+        if (isOpen) {
+          modal.style.opacity = '0';
+          modal.style.pointerEvents = 'none';
+        } else {
+          // Fill modal based on current world
+          const worldId = this.renderer.currentWorldId;
+          const eraTitle = document.getElementById('modal-era-title');
+          const eraDesc = document.getElementById('modal-era-desc');
+          const mathDesc = document.getElementById('modal-math-desc');
+          const icon = document.getElementById('modal-era-icon');
+
+          if (worldId === 'EGYPT') {
+            icon.innerText = '🏛️';
+            eraTitle.innerText = 'Año 0: Antiguo Egipto y el Río Nilo';
+            eraDesc.innerText = 'Las Pirámides de Giza con su cúspide dorada, barcas feluccas flotando sobre el azul del Nilo y un oasis de palmeras en el desierto.';
+            mathDesc.innerText = 'Para regresar al Año 0 (punto de partida de la historia), debemos restar exactamente la cantidad de años que nos separan del origen. ¡El Año 0 es nuestro límite mínimo!';
+          } else if (worldId === 'MEDIEVAL') {
+            icon.innerText = '🏰';
+            eraTitle.innerText = 'Año 1200: Fortaleza Medieval';
+            eraDesc.innerText = 'Un gran castillo de piedra con torres almenadas, antorchas de fuego real iluminando el camino empedrado y un molino de viento giratorio.';
+            mathDesc.innerText = 'Del Año 0 al 1200 sumamos 1200 años (+1200). ¡Sumar nos hace viajar hacia adelante en el tiempo!';
+          } else if (worldId === 'CITY') {
+            icon.innerText = '🏙️';
+            eraTitle.innerText = 'Año 2000: Era Moderna Urbana';
+            eraDesc.innerText = 'Calles de asfalto con automóviles de colores en movimiento constante, semáforos y grandes rascacielos con ventanas iluminadas.';
+            mathDesc.innerText = 'Para ir del Año 1200 al 2000 calculamos la diferencia: 2000 - 1200 = 800 años de salto.';
+          } else if (worldId === 'FUTURE') {
+            icon.innerText = '🛸';
+            eraTitle.innerText = 'Año 3000+: Metrópolis Futurista';
+            eraDesc.innerText = 'Rascacielos colosales con líneas de neón, domos de energía translúcidos y naves espaciales volando en múltiples trayectorias.';
+            mathDesc.innerText = 'Un salto de 1000 años (1 Milenio) o 10000 años representa la cúspide de la suma temporal.';
+          } else if (worldId === 'DINOS') {
+            icon.innerText = '🦖';
+            eraTitle.innerText = 'Mundo de Error Leve: Dinosaurios (Δ <= 500)';
+            eraDesc.innerText = 'Un T-Rex animado custodiando la selva jurásica y pterodáctilos volando en círculos por el cielo.';
+            mathDesc.innerText = 'Un fallo menor a 500 años causa una distorsión temporal prehistórica. ¡Ajusta tu operación con números más pequeños!';
+          } else if (worldId === 'SPACE') {
+            icon.innerText = '🪐';
+            eraTitle.innerText = 'Mundo de Error Medio: Espacio Profundo (Δ 501-2000)';
+            eraDesc.innerText = 'Un campo de asteroides flotantes y un planeta anillado gigante en la inmensidad estelar.';
+            mathDesc.innerText = 'Un error de 500 a 2000 años expulsa la máquina a la gravedad cero del cosmos. Revisa si debías sumar o restar.';
+          } else {
+            icon.innerText = '🌋';
+            eraTitle.innerText = 'Mundo de Error Crítico: Lava Volcánica (Δ > 2000 o Sub-Cero)';
+            eraDesc.innerText = 'Ríos de lava ardiente fluyendo y picos volcánicos humeantes.';
+            mathDesc.innerText = '¡Alerta! Si restas más de lo debido y obtienes un número negativo (< 0), el reactor temporal se recalienta y viaja a la lava.';
+          }
+
+          modal.style.opacity = '1';
+          modal.style.pointerEvents = 'auto';
+        }
+      }
+
+      showClueModal(show = true) {
+        audioEngine.playClick(900, 0.03);
+        const modal = document.getElementById('modal-clue');
+        const content = document.getElementById('clue-content');
+
+        if (!show) {
+          modal.style.opacity = '0';
+          modal.style.pointerEvents = 'none';
+          return;
+        }
+
+        const m = MISSIONS[this.currentMissionIndex];
+        content.innerHTML = `
+          <div><strong class="text-cyan-300">📍 Año en el que estás:</strong> ${this.currentYear}</div>
+          <div><strong class="text-amber-300">🎯 Año Meta:</strong> ${this.targetYear}</div>
+          <div class="pt-2 border-t border-slate-700"><strong class="text-emerald-400">💡 Paso a Paso:</strong></div>
+          <div>1. ${this.currentYear < this.targetYear ? 'El destino está en el FUTURO, debes <strong>SUMAR (+)</strong>.' : 'El destino está en el PASADO, debes <strong>RESTAR (-)</strong>.'}</div>
+          <div>2. Operación exacta: <code>|${this.targetYear} - ${this.currentYear}| = ${Math.abs(this.targetYear - this.currentYear)}</code></div>
+          <div class="text-xs text-amber-200 mt-2 bg-amber-950/60 p-2 rounded-lg border border-amber-500/30">✨ Ajusta el salto a <strong>${Math.abs(this.targetYear - this.currentYear)}</strong> años para un viaje 100% perfecto.</div>
+        `;
+
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+      }
+
+      toggleModeMenu() {
+        audioEngine.playClick(800, 0.03);
+        const modal = document.getElementById('modal-modes');
+        const isOpen = modal.style.opacity === '1';
+        if (isOpen) {
+          modal.style.opacity = '0';
+          modal.style.pointerEvents = 'none';
+        } else {
+          modal.style.opacity = '1';
+          modal.style.pointerEvents = 'auto';
+        }
+      }
+
+      switchMode(mode) {
+        audioEngine.playClick(900, 0.04);
+        this.gameMode = mode;
+        const lbl = document.getElementById('mode-name-label');
+        const tabCamp = document.getElementById('tab-campaign');
+        const tabFree = document.getElementById('tab-free');
+        const tabLab = document.getElementById('tab-lab');
+
+        tabCamp.className = "py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all " + (mode === 'campaign' ? "bg-indigo-600 text-white border-indigo-400 shadow-md" : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white");
+        tabFree.className = "py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all " + (mode === 'free' ? "bg-indigo-600 text-white border-indigo-400 shadow-md" : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white");
+        tabLab.className = "py-2 px-3 rounded-xl font-tech text-xs font-bold border transition-all " + (mode === 'lab' ? "bg-indigo-600 text-white border-indigo-400 shadow-md" : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white");
+
+        if (mode === 'campaign') {
+          lbl.innerText = "Misiones";
+          this.renderMissionsList();
+        } else if (mode === 'free') {
+          lbl.innerText = "Desafío Libre";
+          this.renderFreeMode();
+        } else {
+          lbl.innerText = "Laboratorio";
+          this.renderLabMode();
+        }
+      }
+
+      renderMissionsList() {
+        const container = document.getElementById('missions-list');
+        container.innerHTML = MISSIONS.map((m, idx) => `
+          <div onclick="game.selectMission(${idx})" class="p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${idx === this.currentMissionIndex ? 'bg-indigo-950/80 border-cyan-400 glow-cyan' : 'bg-slate-900/80 border-slate-800 hover:border-slate-600'}">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">${m.targetEra === 'EGYPT' ? '🏛️' : m.targetEra === 'MEDIEVAL' ? '🏰' : m.targetEra === 'CITY' ? '🏙️' : '🛸'}</span>
+              <div>
+                <h4 class="text-xs md:text-sm font-bold font-tech text-white">${m.title}</h4>
+                <p class="text-[11px] text-slate-400 font-sans line-clamp-1">${m.description}</p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-xs font-digital text-amber-400 font-bold block">META: ${m.targetYear}</span>
+              <span class="text-[10px] text-slate-500 font-tech">Nivel ${idx + 1}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      renderFreeMode() {
+        const container = document.getElementById('missions-list');
+        container.innerHTML = `
+          <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-700 text-center space-y-3">
+            <h4 class="text-sm font-bold font-scifi text-cyan-300">🎲 Generador de Desafíos Temporales</h4>
+            <p class="text-xs text-slate-300 font-sans">Genera un año inicial y un año meta sorpresa para poner a prueba tus habilidades de cálculo.</p>
+            <button onclick="game.generateRandomChallenge()" class="btn-3d px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold text-xs font-scifi shadow-lg">
+              ⚡ ¡Generar Nuevo Desafío Aleatorio!
+            </button>
+          </div>
+        `;
+      }
+
+      renderLabMode() {
+        const container = document.getElementById('missions-list');
+        container.innerHTML = `
+          <div class="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/40 space-y-2.5 text-xs text-slate-300">
+            <h4 class="text-sm font-bold font-scifi text-purple-300">🔬 Explorador de Anomalías Temporales</h4>
+            <p>Descubre a propósito los mundos de error para aprender sus rangos matemáticos:</p>
+            <div class="grid grid-cols-3 gap-2 pt-2">
+              <button onclick="game.setLabPreset('dino')" class="btn-3d p-2 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-center font-tech">
+                <span class="text-lg block">🦖</span>
+                <span class="font-bold block">Dinosaurios</span>
+                <span class="text-[9px] text-slate-400">Δ <= 500</span>
+              </button>
+              <button onclick="game.setLabPreset('space')" class="btn-3d p-2 rounded-xl bg-indigo-950/80 border border-indigo-500/50 text-indigo-300 text-center font-tech">
+                <span class="text-lg block">🪐</span>
+                <span class="font-bold block">Espacio</span>
+                <span class="text-[9px] text-slate-400">Δ 501-2000</span>
+              </button>
+              <button onclick="game.setLabPreset('lava')" class="btn-3d p-2 rounded-xl bg-red-950/80 border border-red-500/50 text-red-300 text-center font-tech">
+                <span class="text-lg block">🌋</span>
+                <span class="font-bold block">Lava / < 0</span>
+                <span class="text-[9px] text-slate-400">Δ > 2000 o &lt;0</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      selectMission(index) {
+        audioEngine.playClick(900, 0.03);
+        this.loadMission(index);
+        this.toggleModeMenu();
+      }
+
+      generateRandomChallenge() {
+        audioEngine.playClick(1000, 0.05);
+        const startYears = [0, 200, 450, 800, 1200, 1500, 2000, 3000];
+        const targetYears = [0, 1200, 2000, 3000, 5000];
+
+        const s = startYears[Math.floor(Math.random() * startYears.length)];
+        let t = targetYears[Math.floor(Math.random() * targetYears.length)];
+        while (t === s) {
+          t = targetYears[Math.floor(Math.random() * targetYears.length)];
+        }
+
+        this.currentYear = s;
+        this.targetYear = t;
+        this.operation = t >= s ? '+' : '-';
+        this.jumpValue = 100;
+
+        document.getElementById('target-mission-name').innerText = `Desafío Libre: Del ${s} al ${t}`;
+        document.getElementById('target-year-badge').innerText = `META: ${t}`;
+        document.getElementById('display-current-year').innerText = this.currentYear;
+        document.getElementById('display-current-era').innerText = this.getEraName(this.currentYear);
+        document.getElementById('input-jump').value = this.jumpValue;
+        document.getElementById('pedagogical-hint').innerText = `Calcula cuánto debes ${this.operation === '+' ? 'sumar' : 'restar'} para llegar de ${s} a ${t}.`;
+
+        this.setOperation(this.operation);
+        this.toggleModeMenu();
+      }
+
+      setLabPreset(type) {
+        audioEngine.playClick(900, 0.03);
+        if (type === 'dino') {
+          this.currentYear = 0;
+          this.targetYear = 1200;
+          this.operation = '+';
+          this.jumpValue = 900; // Delta = 300 (Dinosaurios)
+        } else if (type === 'space') {
+          this.currentYear = 0;
+          this.targetYear = 3000;
+          this.operation = '+';
+          this.jumpValue = 1500; // Delta = 1500 (Espacio)
+        } else if (type === 'lava') {
+          this.currentYear = 200;
+          this.targetYear = 0;
+          this.operation = '-';
+          this.jumpValue = 500; // Dest = -300 (<0 Lava)
+        }
+
+        document.getElementById('target-year-badge').innerText = `META: ${this.targetYear}`;
+        document.getElementById('display-current-year').innerText = this.currentYear;
+        document.getElementById('display-current-era').innerText = this.getEraName(this.currentYear);
+        document.getElementById('input-jump').value = this.jumpValue;
+        this.setOperation(this.operation);
+        this.toggleModeMenu();
+      }
+    }
+
+    // Initialize Game Engine on Page Load
+    let game = null;
+    let worldRenderer = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('canvas-container');
+      worldRenderer = new WorldRenderer(container);
+      game = new GameController();
+      game.init(worldRenderer);
+
+      // Expose to window for inline HTML onclick handlers
+      window.game = game;
+      window.audioEngine = audioEngine;
+    });
+  </script>
+</body>
+</html>

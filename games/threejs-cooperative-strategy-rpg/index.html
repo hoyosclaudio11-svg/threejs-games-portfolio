@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cooperative Strategy RPG</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:'Segoe UI',sans-serif;color:#e0e0e0}
+#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0e1a,#1a1040);z-index:100}
+#menu h1{font-size:2.2em;margin-bottom:10px;color:#a855f7;text-shadow:0 0 20px rgba(168,85,247,0.3)}
+#menu p{margin-bottom:20px;color:#aaa;font-size:1em;max-width:500px;text-align:center}
+#startBtn{padding:15px 40px;font-size:1.2em;background:#a855f7;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#hud>div{pointer-events:auto}
+.turn-bar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.hero-portrait{width:50px;height:50px;border-radius:8px;border:2px solid #333;display:flex;align-items:center;justify-content:center;font-size:1.5em;cursor:pointer;background:rgba(0,0,0,.5)}
+.hero-portrait.active{border-color:#ffd700;box-shadow:0 0 10px rgba(255,215,0,.3)}
+.hero-portrait.dead{opacity:.3;filter:grayscale(1)}
+.action-panel{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(0,0,0,.8);border-radius:8px;padding:8px}
+.ability-btn{width:60px;height:60px;border-radius:8px;border:2px solid #555;background:rgba(0,0,0,.5);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.7em;gap:2px;color:#fff}
+.ability-btn:hover{border-color:#a855f7}
+.ability-btn .icon{font-size:1.8em}
+.ability-btn .cost{color:#aaa;font-size:.8em}
+.ability-btn:disabled{opacity:.4;cursor:default}
+.hero-info{position:absolute;top:70px;left:10px;background:rgba(0,0,0,.7);border-radius:8px;padding:12px;width:200px}
+.hero-info h3{font-size:1em;margin-bottom:6px}
+.hero-info .stat{display:flex;justify-content:space-between;font-size:.8em;margin-bottom:3px}
+.hero-info .bar{width:100%;height:8px;background:#333;border-radius:4px;overflow:hidden;margin:2px 0}
+.hero-info .bar-fill{height:100%;border-radius:4px;transition:width .3s}
+.enemy-panel{position:absolute;top:70px;right:10px;background:rgba(0,0,0,.7);border-radius:8px;padding:12px;width:200px;display:none}
+.info-panel{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);border-radius:8px;padding:8px 16px;font-size:.8em;text-align:center;max-width:400px}
+.end-turn-btn{position:absolute;bottom:80px;right:10px;padding:8px 16px;background:#a855f7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.85em}
+.end-turn-btn:hover{background:#c084fc}
+.synergy-bar{position:absolute;top:10px;right:10px;width:120px;text-align:center}
+.synergy-fill{width:100%;height:10px;background:#333;border-radius:5px;overflow:hidden}
+.synergy-fill-inner{height:100%;background:linear-gradient(90deg,#f59e0b,#a855f7);transition:width .3s;border-radius:5px}
+.game-over{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.8);z-index:50}
+.game-over h1{font-size:3em;margin-bottom:10px}
+.game-over p{font-size:1.2em;color:#aaa}
+</style>
+</head>
+<body>
+<div id="menu">
+<h1>⚔️ Cooperative Strategy RPG</h1>
+<p>Táctico cooperativo por turnos. Lidera a 4 héroes contra las fuerzas del Vacío. Click para mover, Q/E para habilidades.</p>
+<button id="startBtn" onclick="startGame()">⚔️ Iniciar Misión</button>
+</div>
+<div id="game" style="display:none">
+<canvas id="canvas"></canvas>
+<div id="hud">
+<div class="turn-bar" id="turnBar"></div>
+<div class="hero-info" id="heroInfo"></div>
+<div class="enemy-panel" id="enemyInfo"></div>
+<div class="action-panel" id="actionPanel"></div>
+<div class="info-panel" id="infoPanel">Selecciona un héroe y muévelo o usa una habilidad</div>
+<button class="end-turn-btn" onclick="endTurn()">⏭️ Terminar Turno</button>
+<div class="synergy-bar"><div style="font-size:.7em;color:#ffd700;margin-bottom:3px">⚡ Sinergia</div><div class="synergy-fill"><div class="synergy-fill-inner" id="synergyFill"></div></div></div>
+</div>
+</div>
+<script>
+const GRID_W=10,GRID_H=10,TILE_SIZE=50;
+const HEROES=[
+{id:"valeria",name:"Valeria",title:"Paladín",classType:"paladin",color:"#f59e0b",portrait:"🛡️",hp:140,maxHp:140,mana:60,maxMana:60,ap:4,maxAp:4,attack:28,defense:18,speed:4,range:1,pos:{x:3,z:2},isDead:false,status:[],
+abilities:[{id:"smite",name:"Golpe del Alba",apCost:1,manaCost:10,cooldown:0,maxCooldown:0,range:1,aoe:0,power:35,icon:"⚔️",type:"damage",synergy:"holy"},
+{id:"shield",name:"Égida Sagrada",apCost:2,manaCost:20,cooldown:0,maxCooldown:2,range:2,aoe:1,power:40,icon:"🛡️",type:"buff",synergy:"holy"},
+{id:"taunt",name:"Grito de Desafío",apCost:1,manaCost:15,cooldown:0,maxCooldown:3,range:3,aoe:2,power:0,icon:"📢",type:"debuff"},
+{id:"whirlwind",name:"Torbellino",apCost:2,manaCost:25,cooldown:0,maxCooldown:2,range:1,aoe:1,power:45,icon:"💫",type:"damage"}]},
+{id:"kaelen",name:"Kaelen",title:"Mago",classType:"mage",color:"#38bdf8",portrait:"🔮",hp:85,maxHp:85,mana:120,maxMana:120,ap:4,maxAp:4,attack:34,defense:8,speed:3,range:4,pos:{x:2,z:1},isDead:false,status:[],
+abilities:[{id:"arcane_bolt",name:"Saeta Arcana",apCost:1,manaCost:12,cooldown:0,maxCooldown:0,range:4,aoe:0,power:32,icon:"✨",type:"damage",synergy:"arcane"},
+{id:"frost_nova",name:"Nova de Escarcha",apCost:2,manaCost:25,cooldown:0,maxCooldown:2,range:3,aoe:1,power:25,icon:"❄️",type:"damage",synergy:"ice"},
+{id:"meteor",name:"Llama de Plasma",apCost:2,manaCost:35,cooldown:0,maxCooldown:3,range:4,aoe:1,power:55,icon:"🔥",type:"damage",synergy:"fire"},
+{id:"blink",name:"Falla Espacial",apCost:1,manaCost:18,cooldown:0,maxCooldown:2,range:4,aoe:0,power:15,icon:"🌀",type:"teleport"}]},
+{id:"lyra",name:"Lyra",title:"Exploradora",classType:"ranger",color:"#10b981",portrait:"🏹",hp:95,maxHp:95,mana:70,maxMana:70,ap:4,maxAp:4,attack:32,defense:10,speed:5,range:5,pos:{x:4,z:1},isDead:false,status:[],
+abilities:[{id:"piercing",name:"Flecha Perforante",apCost:1,manaCost:10,cooldown:0,maxCooldown:0,range:5,aoe:0,power:40,icon:"🎯",type:"damage"},
+{id:"volley",name:"Lluvia de Flechas",apCost:2,manaCost:20,cooldown:0,maxCooldown:2,range:4,aoe:1,power:30,icon:"🌧️",type:"damage"},
+{id:"smoke",name:"Velo de Humo",apCost:1,manaCost:15,cooldown:0,maxCooldown:3,range:3,aoe:1,power:0,icon:"💨",type:"buff"},
+{id:"sentry",name:"Torreta",apCost:2,manaCost:25,cooldown:0,maxCooldown:3,range:2,aoe:0,power:20,icon:"⚙️",type:"summon"}]},
+{id:"thorne",name:"Thorne",title:"Sanador",classType:"healer",color:"#a855f7",portrait:"🌿",hp:105,maxHp:105,mana:110,maxMana:110,ap:4,maxAp:4,attack:22,defense:12,speed:4,range:3,pos:{x:3,z:1},isDead:false,status:[],
+abilities:[{id:"heal",name:"Manantial de Vida",apCost:1,manaCost:18,cooldown:0,maxCooldown:0,range:4,aoe:1,power:45,icon:"💚",type:"heal"},
+{id:"cleanse",name:"Purificación",apCost:1,manaCost:15,cooldown:0,maxCooldown:1,range:3,aoe:0,power:15,icon:"💧",type:"cleanse"},
+{id:"roots",name:"Zarzas Espinosas",apCost:2,manaCost:22,cooldown:0,maxCooldown:2,range:3,aoe:1,power:25,icon:"🌱",type:"damage"},
+{id:"surge",name:"Sobrecarga",apCost:2,manaCost:30,cooldown:0,maxCooldown:3,range:3,aoe:0,power:35,icon:"⚡",type:"buff"}]}
+];
+
+let grid=[],enemies=[],turnOrder=[],currentTurn=0,turnCount=1,synergy=0;
+let selectedHero=null,selectedAbility=null,gamePhase="hero_select";
+let highlights=[],floatingTexts=[];
+let canvas,ctx,cam={x:0,y:0};
+let lastTime=0;
+
+function initGrid(){
+grid=[];
+for(let z=0;z<GRID_H;z++)for(let x=0;x<GRID_W;x++){
+let type="grass",walkable=true,cover=0,height=0;
+if((x===2&&z===4)||(x===2&&z===5)||(x===7&&z===4)||(x===7&&z===5)||(x===4&&z===7)||(x===5&&z===7)){type="ruins";walkable=false;cover=2;height=0.5}
+if(x===5&&z===5){type="beacon";walkable=true;cover=0;height=0.4}
+if((x===4&&z===5)||(x===6&&z===5)||(x===5&&z===4)||(x===5&&z===6))type="void_ground";
+if(x===1&&z===2)type="healing_well";
+if(x===8&&z===2)type="mana_barrel";
+grid.push({x,z,type,walkable,cover,height,cleansed:false});
+}
+}
+
+function initEnemies(){
+enemies=[
+{id:"e1",name:"Acechador",type:"void_crawler",hp:55,maxHp:55,attack:16,defense:6,range:1,ap:3,maxAp:3,pos:{x:4,z:6},isDead:false,color:"#9333ea",ai:"aggressive"},
+{id:"e2",name:"Acechador",type:"void_crawler",hp:55,maxHp:55,attack:16,defense:6,range:1,ap:3,maxAp:3,pos:{x:6,z:3},isDead:false,color:"#9333ea",ai:"aggressive"},
+{id:"e3",name:"Invocador",type:"void_summoner",hp:70,maxHp:70,attack:22,defense:4,range:3,ap:3,maxAp:3,pos:{x:8,z:7},isDead:false,color:"#7c3aed",ai:"ranged"},
+{id:"e4",name:"Tirano",type:"void_tyrant",hp:120,maxHp:120,attack:24,defense:12,range:1,ap:4,maxAp:4,pos:{x:6,z:7},isDead:false,color:"#dc2626",ai:"boss"}
+];
+}
+
+function startGame(){
+document.getElementById("menu").style.display="none";
+document.getElementById("game").style.display="block";
+canvas=document.getElementById("canvas");ctx=canvas.getContext("2d");
+initGrid();initEnemies();
+HEROES.forEach(h=>{h.hp=h.maxHp;h.mana=h.maxMana;h.ap=h.maxAp;h.isDead=false;h.status=[];
+h.abilities.forEach(a=>a.cooldown=0)});
+turnOrder=[...HEROES,...enemies].sort((a,b)=>b.speed-a.speed);
+currentTurn=0;gamePhase="hero_select";selectedHero=null;selectedAbility=null;turnCount=1;synergy=0;
+resizeCanvas();lastTime=performance.now();
+canvas.addEventListener("click",onCanvasClick);
+requestAnimationFrame(gameLoop);
+}
+
+function resizeCanvas(){const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.floor(window.innerWidth*dpr);canvas.height=Math.floor(window.innerHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+window.addEventListener("resize",()=>{if(canvas)resizeCanvas()});
+
+function gridToScreen(gx,gz){
+const ox=window.innerWidth/2-(GRID_W*TILE_SIZE)/2;
+const oy=80;
+return{x:ox+gx*TILE_SIZE,y:oy+gz*TILE_SIZE};
+}
+
+function screenToGrid(sx,sy){
+const ox=window.innerWidth/2-(GRID_W*TILE_SIZE)/2;
+const oy=80;
+const gx=Math.floor((sx-ox)/TILE_SIZE);
+const gz=Math.floor((sy-oy)/TILE_SIZE);
+return{x:gx,z:gz};
+}
+
+function onCanvasClick(e){
+const rect=canvas.getBoundingClientRect();
+const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+const g=screenToGrid(sx,sy);
+if(g.x<0||g.x>=GRID_W||g.z<0||g.z>=GRID_H)return;
+
+if(gamePhase==="hero_select"){
+// Select hero at position
+const hero=HEROES.find(h=>!h.isDead&&h.pos.x===g.x&&h.pos.z===g.z);
+if(hero&&hero.ap>0){selectedHero=hero;gamePhase="hero_action";showMovementRange(hero);updateUI();return}
+// If hero already selected, move there
+if(selectedHero&&selectedHero.ap>0){
+if(isReachable(g.x,g.z)&&!isOccupied(g.x,g.z)){
+const dist=Math.abs(g.x-selectedHero.pos.x)+Math.abs(g.z-selectedHero.pos.z);
+selectedHero.pos.x=g.x;selectedHero.pos.z=g.z;selectedHero.ap--;
+selectedHero.mana=Math.min(selectedHero.maxMana,selectedHero.mana+2);
+gamePhase="hero_select";selectedHero=null;highlights=[];
+checkInteractions();updateUI();return;
+}
+// Attack enemy at position
+if(selectedAbility){
+useAbility(selectedAbility,g);return;
+}
+// Select different hero
+const otherHero=HEROES.find(h=>!h.isDead&&h.pos.x===g.x&&h.pos.z===g.z&&h.ap>0);
+if(otherHero){selectedHero=otherHero;showMovementRange(otherHero);updateUI();return}
+}
+}
+}
+
+function showMovementRange(hero){
+highlights=[];
+const range=hero.speed;
+for(let z=0;z<GRID_H;z++)for(let x=0;x<GRID_W;x++){
+const dist=Math.abs(x-hero.pos.x)+Math.abs(z-hero.pos.z);
+if(dist>0&&dist<=range&&grid[z*GRID_W+x].walkable&&!isOccupied(x,z)){
+highlights.push({x,z,type:"move"});
+}
+}
+}
+
+function showAbilityRange(hero,ability){
+highlights=[];
+const range=ability.range;
+for(let z=0;z<GRID_H;z++)for(let x=0;x<GRID_W;x++){
+const dist=Math.abs(x-hero.pos.x)+Math.abs(z-hero.pos.z);
+if(dist<=range){
+const targetType=ability.type==="heal"||ability.type==="cleanse"||ability.type==="buff"?"ally":"enemy";
+if(targetType==="ally"){
+const ally=HEROES.find(h=>!h.isDead&&h.pos.x===x&&h.pos.z===z);
+if(ally)highlights.push({x,z,type:"ability_ally"});
+}else{
+const enemy=enemies.find(e=>!e.isDead&&e.pos.x===x&&e.pos.z===z);
+if(enemy)highlights.push({x,z,type:"ability_enemy"});
+}
+if(ability.aoe>0){
+for(let dz=-ability.aoe;dz<=ability.aoe;dz++)for(let dx=-ability.aoe;dx<=ability.aoe;dx++){
+const ax=x+dx,az=z+dz;
+if(ax>=0&&ax<GRID_W&&az>=0&&az<GRID_H&&!highlights.find(h=>h.x===ax&&h.z===az)){
+highlights.push({x:ax,z:az,type:"ability_aoe"});
+}
+}
+}
+}
+}
+}
+
+function isReachable(x,z){return highlights.some(h=>h.x===x&&h.z===z&&h.type==="move")}
+function isOccupied(x,z){return HEROES.some(h=>!h.isDead&&h.pos.x===x&&h.pos.z===z)||enemies.some(e=>!e.isDead&&e.pos.x===x&&e.pos.z===z)}
+
+function useAbility(ability,target){
+const hero=selectedHero;
+if(!hero||hero.ap<ability.apCost||hero.mana<ability.manaCost||ability.cooldown>0)return;
+hero.ap-=ability.apCost;hero.mana-=ability.manaCost;ability.cooldown=ability.maxCooldown;
+const tx=target.x,tz=target.z;
+
+if(ability.type==="damage"){
+let targets=[];
+if(ability.aoe>0){
+enemies.forEach(e=>{if(!e.isDead&&Math.abs(e.pos.x-tx)+Math.abs(e.pos.z-tz)<=ability.aoe)targets.push(e)});
+}else{
+const e=enemies.find(e=>!e.isDead&&e.pos.x===tx&&e.pos.z===tz);
+if(e)targets.push(e);
+}
+targets.forEach(e=>{
+const dmg=Math.max(5,Math.round(hero.attack*0.7+ability.power-e.defense*0.45)*(0.9+Math.random()*0.2));
+e.hp=Math.max(0,e.hp-dmg);
+addFloatingText(e.pos.x,e.pos.z,`-${dmg}`,"#ff4444");
+synergy=Math.min(100,synergy+5);
+if(e.hp<=0){e.isDead=true;addFloatingText(e.pos.x,e.pos.z,"💀","#ffd700");checkVictory()}
+});
+}else if(ability.type==="heal"){
+HEROES.forEach(h=>{if(!h.isDead&&Math.abs(h.pos.x-tx)+Math.abs(h.pos.z-tz)<=ability.aoe){
+const heal=Math.round(ability.power*(0.9+Math.random()*0.2));
+h.hp=Math.min(h.maxHp,h.hp+heal);
+addFloatingText(h.pos.x,h.pos.z,`+${heal}`,"#33ff88");
+synergy=Math.min(100,synergy+8);
+}});
+}else if(ability.type==="buff"){
+const ally=HEROES.find(h=>!h.isDead&&h.pos.x===tx&&h.pos.z===tz);
+if(ally){ally.status.push({type:"shield",turns:2,power:ability.power});
+addFloatingText(ally.pos.x,ally.pos.z,"🛡️ Shield","#ffd700")}
+}else if(ability.type==="teleport"){
+hero.pos.x=tx;hero.pos.z=tz;
+enemies.forEach(e=>{if(!e.isDead&&Math.abs(e.pos.x-tx)+Math.abs(e.pos.z-tz)<=1){
+const dmg=Math.round(ability.power);e.hp=Math.max(0,e.hp-dmg);
+addFloatingText(e.pos.x,e.pos.z,`-${dmg}`,"#a855f7")}});
+}
+
+gamePhase="hero_select";selectedHero=null;selectedAbility=null;highlights=[];
+if(hero.ap<=0)nextTurn();
+updateUI();
+}
+
+function nextTurn(){
+currentTurn++;
+if(currentTurn>=turnOrder.length){
+currentTurn=0;turnCount++;
+HEROES.forEach(h=>{h.ap=h.maxAp;h.mana=Math.min(h.maxMana,h.mana+15);
+h.abilities.forEach(a=>{if(a.cooldown>0)a.cooldown--})});
+enemies.forEach(e=>{e.ap=e.maxAp});
+spawnReinforcements();
+}
+const unit=turnOrder[currentTurn];
+if(unit.isDead){nextTurn();return}
+if(unit.maxHp!==undefined&&!("ai" in unit)){
+// Hero turn
+gamePhase="hero_select";selectedHero=unit;showMovementRange(unit);updateUI();
+}else{
+// Enemy turn
+setTimeout(()=>{doEnemyTurn(unit);updateUI();},600);
+}
+}
+
+function doEnemyTurn(enemy){
+if(enemy.isDead||enemy.ap<=0)return;
+const target=HEROES.filter(h=>!h.isDead).sort((a,b)=>Math.abs(a.pos.x-enemy.pos.x)+Math.abs(a.pos.z-enemy.pos.z)-Math.abs(b.pos.x-enemy.pos.x)-Math.abs(b.pos.z-enemy.pos.z))[0];
+if(!target)return;
+const dist=Math.abs(target.pos.x-enemy.pos.x)+Math.abs(target.pos.z-enemy.pos.z);
+if(dist<=enemy.range){
+// Attack
+const dmg=Math.max(5,Math.round(enemy.attack*0.7-target.defense*0.45)*(0.9+Math.random()*0.2));
+const shield=target.status.find(s=>s.type==="shield");
+const actualDmg=shield?Math.max(0,dmg-shield.power):dmg;
+target.hp=Math.max(0,target.hp-actualDmg);
+if(shield)shield.power=Math.max(0,shield.power-dmg);
+addFloatingText(target.pos.x,target.pos.z,`-${actualDmg}`,"#ff4444");
+if(target.hp<=0){target.isDead=true;addFloatingText(target.pos.x,target.pos.z,"💀","#ffd700");checkDefeat()}
+enemy.ap=0;
+nextTurn();
+}else{
+// Move toward target
+const dx=Math.sign(target.pos.x-enemy.pos.x);
+const dz=Math.sign(target.pos.z-enemy.pos.z);
+const nx=enemy.pos.x+dx,nz=enemy.pos.z+dz;
+if(nx>=0&&nx<GRID_W&&nz>=0&&nz<GRID_H&&grid[nz*GRID_W+nx].walkable&&!isOccupied(nx,nz)){
+enemy.pos.x=nx;enemy.pos.z=nz;enemy.ap--;
+}else if(dx!==0&&enemy.pos.x+dx>=0&&enemy.pos.x+dx<GRID_W&&grid[enemy.pos.z*GRID_W+enemy.pos.x+dx].walkable&&!isOccupied(enemy.pos.x+dx,enemy.pos.z)){
+enemy.pos.x+=dx;enemy.ap--;
+}else if(dz!==0&&enemy.pos.z+dz>=0&&enemy.pos.z+dz<GRID_H&&grid[(enemy.pos.z+dz)*GRID_W+enemy.pos.x].walkable&&!isOccupied(enemy.pos.x,enemy.pos.z+dz)){
+enemy.pos.z+=dz;enemy.ap--;
+}
+setTimeout(()=>doEnemyTurn(enemy),400);
+}
+}
+
+function checkInteractions(){
+HEROES.forEach(h=>{
+const tile=grid[h.pos.z*GRID_W+h.pos.x];
+if(tile.type==="healing_well"){h.hp=Math.min(h.maxHp,h.hp+30);addFloatingText(h.pos.x,h.pos.z,"+30 HP","#33ff88")}
+if(tile.type==="mana_barrel"){h.mana=Math.min(h.maxMana,h.mana+30);addFloatingText(h.pos.x,h.pos.z,"+30 MP","#3388ff")}
+if(tile.type==="beacon"&&!tile.cleansed){
+const canCleans=HEROES.filter(hh=>!hh.isDead).length>=2;
+if(canCleans){tile.cleansed=true;tile.type="beacon_cleansed";addFloatingText(h.pos.x,h.pos.z,"✨ Purificado!","#ffd700");
+synergy=100;setTimeout(()=>alert("¡Obelisco purificado! Victoria cercana."),500)}
+}
+});
+}
+
+function checkVictory(){
+if(enemies.every(e=>e.isDead)){setTimeout(()=>showGameOver(true),500)}
+}
+function checkDefeat(){
+if(HEROES.every(h=>h.isDead)){setTimeout(()=>showGameOver(false),500)}
+}
+function showGameOver(won){
+const d=document.createElement("div");d.className="game-over";
+d.innerHTML=`<h1>${won?"🏆 ¡VICTORIA!":"💀 DERROTA"}</h1><p>${won?"El Vacío ha sido purificado.":"Los héroes han caído..."}<br>Turnos: ${turnCount} | Sinergia: ${synergy}%</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 30px;background:#a855f7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1.1em">🔄 Jugar de nuevo</button>`;
+document.getElementById("game").appendChild(d);
+}
+
+function spawnReinforcements(){
+if(turnCount%5===0&&enemies.filter(e=>!e.isDead).length<6){
+const spots=[{x:9,z:0},{x:9,z:1},{x:0,z:9},{x:8,z:9}];
+spots.forEach(s=>{if(!isOccupied(s.x,s.z)){
+enemies.push({id:"e"+Date.now()+Math.random(),name:"Acechador",type:"void_crawler",hp:55,maxHp:55,attack:16,defense:6,range:1,ap:3,maxAp:3,pos:{x:s.x,z:s.z},isDead:false,color:"#9333ea",ai:"aggressive"});
+}});
+}
+}
+
+function addFloatingText(gx,gz,text,color){
+const s=gridToScreen(gx,gz);
+floatingTexts.push({x:s.x+TILE_SIZE/2,y:s.y,text,color,life:60});
+}
+
+function gameLoop(now){
+if(!canvas)return;
+const dt=Math.min(.1,(now-lastTime)/1000);lastTime=now;
+render(now);
+requestAnimationFrame(gameLoop);
+}
+
+function render(time){
+const w=window.innerWidth,h=window.innerHeight;
+ctx.fillStyle="#0a0e1a";ctx.fillRect(0,0,w,h);
+const ox=w/2-(GRID_W*TILE_SIZE)/2,oy=80;
+// Draw grid
+for(let z=0;z<GRID_H;z++)for(let x=0;x<GRID_W;x++){
+const tile=grid[z*GRID_W+x];
+const sx=ox+x*TILE_SIZE,sy=oy+z*TILE_SIZE;
+const colors={grass:"#1a3a1a",ruins:"#3a3030",void_ground:"#2a1040",healing_well:"#1a3a2a",mana_barrel:"#1a2a3a",beacon:"#3a2a4a",beacon_cleansed:"#3a4a2a"};
+ctx.fillStyle=colors[tile.type]||"#1a3a1a";
+ctx.fillRect(sx,sy,TILE_SIZE-1,TILE_SIZE-1);
+if(tile.height>0){ctx.fillStyle="rgba(100,80,60,0.3)";ctx.fillRect(sx,sy-TILE_SIZE*tile.height,TILE_SIZE-1,TILE_SIZE*tile.height)}
+// Grid lines
+ctx.strokeStyle="rgba(255,255,255,0.05)";ctx.strokeRect(sx,sy,TILE_SIZE-1,TILE_SIZE-1);
+// Tile icons
+if(tile.type==="beacon"&&!tile.cleansed){ctx.fillStyle="#9333ea";ctx.beginPath();ctx.arc(sx+TILE_SIZE/2,sy+TILE_SIZE/2,8,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="12px sans-serif";ctx.textAlign="center";ctx.fillText("💎",sx+TILE_SIZE/2,sy+TILE_SIZE/2+4)}
+if(tile.type==="healing_well"){ctx.fillStyle="#22c55e";ctx.beginPath();ctx.arc(sx+TILE_SIZE/2,sy+TILE_SIZE/2,6,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="10px sans-serif";ctx.textAlign="center";ctx.fillText("💚",sx+TILE_SIZE/2,sy+TILE_SIZE/2+3)}
+if(tile.type==="mana_barrel"){ctx.fillStyle="#3b82f6";ctx.beginPath();ctx.arc(sx+TILE_SIZE/2,sy+TILE_SIZE/2,6,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="10px sans-serif";ctx.textAlign="center";ctx.fillText("💧",sx+TILE_SIZE/2,sy+TILE_SIZE/2+3)}
+if(tile.type==="ruins"){ctx.fillStyle="#5a4a3a";ctx.fillRect(sx+8,sy+8,TILE_SIZE-18,TILE_SIZE-18)}
+}
+// Highlights
+highlights.forEach(h=>{
+const sx=ox+h.x*TILE_SIZE,sy=oy+h.z*TILE_SIZE;
+ctx.fillStyle=h.type==="move"?"rgba(100,200,100,0.2)":h.type==="ability_enemy"?"rgba(255,50,50,0.3)":h.type==="ability_ally"?"rgba(100,200,100,0.3)":"rgba(100,50,200,0.15)";
+ctx.fillRect(sx,sy,TILE_SIZE-1,TILE_SIZE-1);
+});
+// Enemies
+enemies.forEach(e=>{if(e.isDead)return;
+const sx=ox+e.pos.x*TILE_SIZE+TILE_SIZE/2,sy=oy+e.pos.z*TILE_SIZE+TILE_SIZE/2;
+ctx.fillStyle="rgba(0,0,0,0.3)";ctx.beginPath();ctx.ellipse(sx,sy+10,12,5,0,0,Math.PI*2);ctx.fill();
+ctx.fillStyle=e.color;ctx.beginPath();ctx.arc(sx,sy,10,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.textAlign="center";ctx.fillText("👾",sx,sy+4);
+// HP bar
+if(e.hp<e.maxHp){ctx.fillStyle="#333";ctx.fillRect(sx-12,sy-18,24,3);ctx.fillStyle="#e74c3c";ctx.fillRect(sx-12,sy-18,24*(e.hp/e.maxHp),3)}
+ctx.fillStyle="#fff";ctx.font="8px sans-serif";ctx.fillText(e.name,sx,sy-22);
+});
+// Heroes
+HEROES.forEach(h=>{if(h.isDead)return;
+const sx=ox+h.pos.x*TILE_SIZE+TILE_SIZE/2,sy=oy+h.pos.z*TILE_SIZE+TILE_SIZE/2;
+ctx.fillStyle="rgba(0,0,0,0.3)";ctx.beginPath();ctx.ellipse(sx,sy+10,12,5,0,0,Math.PI*2);ctx.fill();
+const isSelected=selectedHero&&selectedHero.id===h.id;
+if(isSelected){ctx.strokeStyle="#ffd700";ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,14,0,Math.PI*2);ctx.stroke()}
+ctx.fillStyle=h.color;ctx.beginPath();ctx.arc(sx,sy,10,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.textAlign="center";ctx.fillText(h.portrait,sx,sy+4);
+// HP/MP bars
+ctx.fillStyle="#333";ctx.fillRect(sx-12,sy-20,24,3);
+ctx.fillStyle="#22c55e";ctx.fillRect(sx-12,sy-20,24*(h.hp/h.maxHp),3);
+ctx.fillStyle="#333";ctx.fillRect(sx-12,sy-16,24,2);
+ctx.fillStyle="#3b82f6";ctx.fillRect(sx-12,sy-16,24*(h.mana/h.maxMana),2);
+ctx.fillStyle="#fff";ctx.font="8px sans-serif";ctx.fillText(h.name,sx,sy-24);
+// AP dots
+for(let i=0;i<h.ap;i++){ctx.fillStyle="#ffd700";ctx.beginPath();ctx.arc(sx-10+i*7,sy+16,2.5,0,Math.PI*2);ctx.fill()}
+});
+// Floating texts
+floatingTexts=floatingTexts.filter(ft=>{
+ft.y-=1;ft.life--;
+ctx.globalAlpha=Math.min(1,ft.life/30);ctx.fillStyle=ft.color;ctx.font="bold 14px sans-serif";ctx.textAlign="center";ctx.fillText(ft.text,ft.x,ft.y);ctx.globalAlpha=1;
+return ft.life>0;
+});
+}
+
+function updateUI(){
+// Turn bar
+document.getElementById("turnBar").innerHTML=HEROES.map(h=>`<div class="hero-portrait ${h.isDead?"dead":""} ${selectedHero&&selectedHero.id===h.id?"active":""}" style="border-color:${h.color};${!h.isDead&&h.ap>0?"cursor:pointer":""}" onclick="selectHeroById('${h.id}')">${h.portrait}<span style="font-size:.5em;display:block">${h.ap>0?h.ap+"AP":""}</span></div>`).join("");
+// Hero info
+if(selectedHero){
+const h=selectedHero;
+document.getElementById("heroInfo").innerHTML=`<h3 style="color:${h.color}">${h.portrait} ${h.name}</h3>
+<div style="font-size:.7em;color:#aaa;margin-bottom:6px">${h.title}</div>
+<div class="stat"><span>❤️ HP</span><span>${h.hp}/${h.maxHp}</span></div><div class="bar"><div class="bar-fill" style="width:${(h.hp/h.maxHp)*100}%;background:#22c55e"></div></div>
+<div class="stat"><span>💧 MP</span><span>${h.mana}/${h.maxMana}</span></div><div class="bar"><div class="bar-fill" style="width:${(h.mana/h.maxMana)*100}%;background:#3b82f6"></div></div>
+<div class="stat"><span>⚡ AP</span><span>${h.ap}/${h.maxAp}</span></div>
+<div class="stat"><span>⚔️ ATK</span><span>${h.attack}</span></div>
+<div class="stat"><span>🛡️ DEF</span><span>${h.defense}</span></div>`;
+}else{
+document.getElementById("heroInfo").innerHTML=`<div style="color:#aaa;font-size:.85em">Click en un héroe para seleccionarlo</div>`;
+}
+// Action panel
+if(selectedHero&&selectedHero.ap>0){
+document.getElementById("actionPanel").innerHTML=selectedHero.abilities.map((a,i)=>
+`<button class="ability-btn" ${a.apCost>selectedHero.ap||a.manaCost>selectedHero.mana||a.cooldown>0?"disabled":""} onclick="selectAbility(${i})">
+<span class="icon">${a.icon}</span><span style="font-size:.6em">${a.name.split(" ")[0]}</span>
+<span class="cost">${a.apCost}AP ${a.manaCost}MP${a.cooldown>0?" CD:"+a.cooldown:""}</span></button>`
+).join("")+`<button class="ability-btn" onclick="selectedHero=null;selectedAbility=null;highlights=[];gamePhase='hero_select';updateUI()"><span class="icon">❌</span><span class="cost">Cancelar</span></button>`;
+}else{
+document.getElementById("actionPanel").innerHTML=`<div style="padding:10px;color:#aaa;font-size:.8em">Sin AP para actuar</div>`;
+}
+// Info panel
+const unit=turnOrder[currentTurn];
+if(unit&&!("ai" in unit)&&!unit.isDead){
+document.getElementById("infoPanel").textContent=`Turno de ${unit.name} — AP: ${unit.ap} | Selecciona mover o habilidad`;
+}else if(unit&&("ai" in unit)){
+document.getElementById("infoPanel").textContent=`Turno de ${unit.name} (enemigo)...`;
+}
+document.getElementById("synergyFill").style.width=synergy+"%";
+}
+
+function selectHeroById(id){
+const hero=HEROES.find(h=>h.id===id);
+if(hero&&!hero.isDead&&hero.ap>0){selectedHero=hero;gamePhase="hero_action";showMovementRange(hero);updateUI()}
+}
+
+function selectAbility(idx){
+const ability=selectedHero.abilities[idx];
+if(!ability||ability.apCost>selectedHero.ap||ability.manaCost>selectedHero.mana||ability.cooldown>0)return;
+selectedAbility=ability;showAbilityRange(selectedHero,ability);updateUI();
+}
+
+function endTurn(){
+selectedHero=null;selectedAbility=null;highlights=[];gamePhase="hero_select";
+// Skip remaining hero turns
+HEROES.forEach(h=>h.ap=0);
+nextTurn();updateUI();
+}
+
+// Make functions global
+window.selectHeroById=selectHeroById;
+window.selectAbility=selectAbility;
+window.endTurn=endTurn;
+</script>
+</body>
+</html>

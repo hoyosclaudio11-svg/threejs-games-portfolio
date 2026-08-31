@@ -1,0 +1,34 @@
+{
+  "game_id": "threejs-yacar-model-function-5cc0",
+  "based_on_version": "v0",
+  "target_version": "v1",
+  "planner_model": "mock-1",
+  "diagnostico_general": "El juego funciona pero le falta feedback visual y claridad de objetivos.",
+  "impresion_visual": "",
+  "tareas": [
+    {
+      "id": 1,
+      "categoria": "feedback",
+      "descripcion": "Agregar un mensaje de bienvenida visible (título y una línea de instrucciones) al inicio del juego en index.html.",
+      "archivos_afectados": [
+        "index.html"
+      ],
+      "prioridad": "alta",
+      "criterio_de_exito": "Al cargar la página se ve un texto de bienvenida con instrucciones."
+    },
+    {
+      "id": 2,
+      "categoria": "ui",
+      "descripcion": "Mejorar el contraste del texto de la UI agregando un fondo semi-transparente oscuro detrás de los textos.",
+      "archivos_afectados": [
+        "index.html"
+      ],
+      "prioridad": "media",
+      "criterio_de_exito": "Los textos de la UI son legibles sobre cualquier fondo del juego."
+    }
+  ],
+  "fuera_de_alcance": [
+    "No se agregan nuevos niveles ni mecánicas nuevas en esta iteración."
+  ],
+  "generado_en": "2026-08-31T03:26:07.410Z"
+}

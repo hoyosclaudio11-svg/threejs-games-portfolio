@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "ok": true,
+  "fecha": "2026-08-31T03:25:55.245Z",
+  "url": "http://127.0.0.1:3110/games/threejs-toad-model-function-11a6/v1/",
+  "errores_fatales": [],
+  "errores_consola": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "requests_fallidos": [],
+  "canvas": {
+    "count": 1,
+    "width": 504,
+    "height": 412,
+    "webgl": true
+  },
+  "three_global": false,
+  "screenshot": "validation.png",
+  "detalle": null
+}

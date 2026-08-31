@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Scape - Urban Survival</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            color: #ecf0f1;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 4px solid #34495e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #d35400 0%, #e67e22 40%, #f39c12 100%);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #score-board {
+            padding: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        #game-over h1 {
+            color: #e74c3c;
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 0 #c0392b;
+        }
+
+        #final-score {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            color: white;
+            background-color: #27ae60;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2ecc71;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        <div id="ui-layer">
+            <div id="score-board">PUNTOS: <span id="score">0</span></div>
+            <div id="game-over">
+                <h1>SISTEMA CAÍDO</h1>
+                <div id="final-score">Puntuación final: 0</div>
+                <button onclick="resetGame()">REINICIAR SISTEMA</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+
+        // Configuración del juego
+        const GAME_SPEED_START = 4;
+        let gameSpeed = GAME_SPEED_START;
+        let score = 0;
+        let frameCount = 0;
+        let gameActive = true;
+        let animationId;
+
+        // Controles
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, a: false, d: false,
+            W: false, S: false, A: false, D: false
+        };
+
+        document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+        document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+        // Jugador (Dron)
+        const player = {
+            x: 100,
+            y: 225,
+            width: 40,
+            height: 30,
+            speed: 6,
+            emoji: '🛸',
+            
+            draw() {
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Añadir un pequeño efecto de flotación
+                const floatY = Math.sin(frameCount * 0.1) * 3;
+                ctx.fillText(this.emoji, this.x + this.width/2, this.y + this.height/2 + floatY);
+                
+                // Hitbox (descomentar para debug)
+                // ctx.strokeStyle = 'red';
+                // ctx.strokeRect(this.x, this.y, this.width, this.height);
+            },
+
+            update() {
+                // Movimiento
+                if ((keys.ArrowUp || keys.w || keys.W) && this.y > 0) this.y -= this.speed;
+                if ((keys.ArrowDown || keys.s || keys.S) && this.y + this.height < canvas.height) this.y += this.speed;
+                if ((keys.ArrowLeft || keys.a || keys.A) && this.x > 0) this.x -= this.speed;
+                if ((keys.ArrowRight || keys.d || keys.D) && this.x + this.width < canvas.width) this.x += this.speed;
+            }
+        };
+
+        // Obstáculos (Edificios en ruinas)
+        const obstacles = [];
+        
+        class Obstacle {
+            constructor() {
+                this.width = Math.random() * 60 + 40;
+                this.x = canvas.width;
+                
+                // Decidir si viene de arriba o de abajo
+                const isTop = Math.random() > 0.5;
+                this.height = Math.random() * 200 + 50;
+                
+                if (isTop) {
+                    this.y = 0;
+                } else {
+                    this.y = canvas.height - this.height;
+                }
+
+                // Colores post-apocalípticos
+                const colors = ['#2c3e50', '#34495e', '#7f8c8d', '#95a5a6'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Detalles del edificio
+                this.windows = [];
+                for(let i=0; i<5; i++) {
+                    if(Math.random() > 0.3) {
+                        this.windows.push({
+                            x: Math.random() * (this.width - 10),
+                            y: Math.random() * (this.height - 10),
+                            isOn: Math.random() > 0.8
+                        });
+                    }
+                }
+            }
+
+            draw() {
+                // Estructura principal
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Borde oscuro para dar volumen
+                ctx.strokeStyle = '#1a252f';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+                // Ventanas
+                this.windows.forEach(w => {
+                    ctx.fillStyle = w.isOn ? '#f1c40f' : '#2c3e50';
+                    ctx.fillRect(this.x + w.x, this.y + w.y, 8, 12);
+                });
+            }
+
+            update() {
+                this.x -= gameSpeed;
+            }
+        }
+
+        // Partículas (Polvo/Humo de fondo)
+        const particles = [];
+        class Particle {
+            constructor() {
+                this.x = canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 3 + 1;
+                this.speed = Math.random() * 2 + 1;
+                this.opacity = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.x -= this.speed;
+            }
+            draw() {
+                ctx.fillStyle = `rgba(236, 240, 241, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function handleObstacles() {
+            // Generar nuevos obstáculos
+            if (frameCount % 60 === 0) { // Aproximadamente 1 por segundo al inicio
+                obstacles.push(new Obstacle());
+            }
+
+            for (let i = 0; i < obstacles.length; i++) {
+                obstacles[i].update();
+                obstacles[i].draw();
+
+                // Detección de colisiones (AABB)
+                // Se reduce ligeramente el hitbox visual para que sea más perdonador
+                const hitboxPadding = 5;
+                if (
+                    player.x + hitboxPadding < obstacles[i].x + obstacles[i].width &&
+                    player.x + player.width - hitboxPadding > obstacles[i].x &&
+                    player.y + hitboxPadding < obstacles[i].y + obstacles[i].height &&
+                    player.y + player.height - hitboxPadding > obstacles[i].y
+                ) {
+                    gameOver();
+                }
+
+                // Eliminar obstáculos que ya pasaron
+                if (obstacles[i].x + obstacles[i].width < 0) {
+                    obstacles.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        function handleParticles() {
+            if (frameCount % 5 === 0) particles.push(new Particle());
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].x < 0) {
+                    particles.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            cancelAnimationFrame(animationId);
+            gameOverScreen.style.display = 'flex';
+            finalScoreElement.innerText = `Puntuación final: ${Math.floor(score)}`;
+        }
+
+        function resetGame() {
+            player.x = 100;
+            player.y = 225;
+            obstacles.length = 0;
+            particles.length = 0;
+            score = 0;
+            gameSpeed = GAME_SPEED_START;
+            frameCount = 0;
+            gameActive = true;
+            gameOverScreen.style.display = 'none';
+            animate();
+        }
+
+        // Suelo estilizado en la parte inferior
+        function drawGround() {
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(0, canvas.height - 10, canvas.width, 10);
+        }
+
+        function animate() {
+            if (!gameActive) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            handleParticles();
+            handleObstacles();
+            player.update();
+            player.draw();
+            drawGround();
+
+            // Lógica de puntuación y dificultad
+            score += 0.1;
+            scoreElement.innerText = Math.floor(score);
+            
+            if (frameCount % 600 === 0) { // Aumentar velocidad cada 10 segundos aprox.
+                gameSpeed += 0.5;
+            }
+
+            frameCount++;
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Iniciar el juego
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cooperative Mars Survival</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a0e08;font-family:'Segoe UI',sans-serif;color:#e0e0e0}
+canvas{display:block;width:100%;height:100%}
+#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0508,#1a0e18);z-index:100}
+#menu h1{font-size:2.5em;margin-bottom:10px;color:#ff6600;text-shadow:0 0 20px rgba(255,102,0,0.3)}
+#menu p{margin-bottom:30px;color:#aaa;font-size:1.1em;max-width:500px;text-align:center}
+#startBtn{padding:15px 40px;font-size:1.2em;background:#ff6600;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+#startBtn:hover{background:#ff8833}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#hud>div{pointer-events:auto}
+.res-bars{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px}
+.res-bar{width:220px;height:22px;background:#222;border-radius:4px;overflow:hidden;position:relative}
+.res-fill{height:100%;transition:width .3s;border-radius:4px}
+.res-label{position:absolute;top:0;left:6px;font-size:.7em;line-height:22px;text-shadow:1px 1px 2px #000}
+.res-net{position:absolute;top:0;right:6px;font-size:.65em;line-height:22px;text-shadow:1px 1px 2px #000}
+.sol-info{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center}
+.sol-label{font-size:1.2em;color:#ff8833;text-shadow:0 0 10px rgba(255,136,51,0.5)}
+.sol-time{font-size:.8em;color:#aaa}
+.storm-warning{position:absolute;top:50px;left:50%;transform:translateX(-50%);font-size:1.1em;color:#ff3333;text-shadow:0 0 15px rgba(255,0,0,0.5);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.inv-panel{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.7);border-radius:8px;padding:12px}
+.inv-panel h3{font-size:.9em;color:#ff8833;margin-bottom:8px}
+.inv-item{display:flex;justify-content:space-between;gap:12px;font-size:.85em;margin-bottom:4px}
+.structure-panel{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.7);border-radius:8px;padding:12px;max-height:250px;overflow-y:auto}
+.structure-panel h3{font-size:.9em;color:#ff8833;margin-bottom:8px}
+.struct-row{display:flex;align-items:center;gap:8px;font-size:.8em;margin-bottom:6px;padding:6px;background:rgba(255,255,255,.05);border-radius:4px;cursor:pointer}
+.struct-row:hover{background:rgba(255,255,255,.1)}
+.struct-icon{font-size:1.3em}
+.struct-info{flex:1}
+.struct-name{font-weight:bold}
+.struct-effect{font-size:.8em;color:#aaa}
+.struct-cost{font-size:.75em;color:#ff6600}
+.upgrade-btn{padding:3px 8px;background:#ff6600;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.75em}
+.upgrade-btn:disabled{background:#555;cursor:default}
+.events-panel{position:absolute;bottom:10px;right:10px;width:300px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,.5);border-radius:8px;padding:8px;font-size:.7em}
+.event{margin-bottom:3px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.event.story{color:#ff8833}.event.danger{color:#ff3333}.event.good{color:#33ff88}.event.info{color:#aaa}.event.player{color:#88bbff}
+.team-panel{position:absolute;top:10px;left:240px;display:flex;flex-direction:column;gap:4px}
+.team-member{display:flex;align-items:center;gap:6px;font-size:.75em}
+.team-dot{width:10px;height:10px;border-radius:50%}
+.controls-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border-radius:6px;padding:6px 12px;font-size:.7em}
+#mining-bar{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:12px;background:#333;border-radius:6px;display:none;border:1px solid #555}
+#mining-fill{height:100%;background:#ff6600;border-radius:6px;transition:width .1s}
+#mining-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:.75em;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="menu">
+<h1>🔴 Cooperative Mars Survival</h1>
+<p>Supervivencia cooperativa en Marte. Gestiona recursos, construye estructuras y carga la baliza de rescate. W=adelante S=atrás A/D=girar. E=recoger. WASD en el hábitat.</p>
+<button id="startBtn" onclick="startGame()">🚀 Iniciar Misión</button>
+</div>
+<div id="game" style="display:none">
+<canvas id="canvas"></canvas>
+<div id="hud">
+<div class="sol-info"><div class="sol-label" id="solLabel">Sol 1 — Amanecer</div><div class="sol-time" id="solTime">00:00</div></div>
+<div id="stormWarn" class="storm-warning" style="display:none">⚠️ TORMENTA DE POLVO</div>
+<div class="res-bars" id="resBars"></div>
+<div class="team-panel" id="teamPanel"></div>
+<div class="inv-panel" id="invPanel"><h3>📦 Inventario</h3><div id="invItems"></div></div>
+<div class="structure-panel" id="structPanel"><h3>🏗️ Estructuras</h3><div id="structList"></div></div>
+<div class="events-panel" id="eventsPanel"></div>
+<div class="controls-hint">WASD — Mover | E — Recolectar | Q — Construir mejoras</div>
+<div id="mining-bar"><div id="mining-fill"></div><div id="mining-label">⛏️ Extrayendo...</div></div>
+</div>
+</div>
+<script>
+const TIME_SCALE=2,SOL_LENGTH=240,DAY_FRACTION=0.62,MAP_RADIUS=105,BASE_RADIUS=15;
+const MINE_RANGE=6.5,MINE_DURATION_MS=2400;
+const CAPS={oxygen:140,water:180,food:140,power:260};
+const START_RES={oxygen:110,water:90,food:75,power:80};
+const NODES_AT_START={ice:7,ore:6,silicon:5,scrap:4};
+const NODE_RESPAWN=75;
+const ITEMS={ice:{label:"Hielo",icon:"🧊",color:"#7dd3fc"},ore:{label:"Mineral",icon:"⛏️",color:"#f59e0b"},silicon:{label:"Silicio",icon:"💠",color:"#c084fc"},scrap:{label:"Chatarra",icon:"🔩",color:"#94a3b8"}};
+const STRUCTURE_DEFS={
+oxygen:{label:"Oxigenador CO₂",icon:"🫁",maxLevel:5,startLevel:1,cost:l=>({ore:3+l,silicon:2+Math.floor(l/2),scrap:1+Math.floor(l/2)}),effect:l=>`+${(l*0.09).toFixed(2)} O₂/s · -${(l*0.05).toFixed(2)}⚡`},
+solar:{label:"Granja solar",icon:"🔆",maxLevel:6,startLevel:1,cost:l=>({silicon:3+l,ore:2+Math.floor(l/2)}),effect:l=>`+${(l*0.1).toFixed(2)}⚡/s`},
+battery:{label:"Banco baterías",icon:"🔋",maxLevel:6,startLevel:1,cost:l=>({ore:2+l,scrap:2+l}),effect:l=>`Cap ${100+l*60}⚡`},
+extractor:{label:"Extractor hielo",icon:"💧",maxLevel:5,startLevel:0,cost:l=>({ore:3+l,scrap:2+l}),effect:l=>`+${(l*0.05).toFixed(2)}💧/s · -${(l*0.03).toFixed(2)}⚡`},
+farm:{label:"Invernadero",icon:"🌱",maxLevel:5,startLevel:0,cost:l=>({ore:2+l,silicon:2,ice:3+l*2}),effect:l=>`+${(l*0.02).toFixed(2)}🍎/s · -${(l*0.03).toFixed(2)}💧`},
+beacon:{label:"Baliza rescate",icon:"📡",maxLevel:1,startLevel:0,cost:()=>({ore:10,silicon:8,scrap:6}),effect:()=>"Carga con energía. 100% = Victoria."}
+};
+const STRUCT_ORDER=["oxygen","solar","battery","extractor","farm","beacon"];
+const RATES={oxygenPerPlayer:0.06,waterPerPlayer:0.03,foodPerPlayer:0.012,solarPerLevel:0.1,extractorWaterPerLevel:0.05,extractorPowerPerLevel:0.03,farmFoodPerLevel:0.02,farmWaterPerLevel:0.03,oxygenPerLevel:0.09,oxygenPowerPerLevel:0.05,oxygenWaterPerLevel:0.02,beaconPower:0.6,beaconChargeRate:0.28,stormHullDamage:0.05};
+const SUIT_COLORS=["#f97316","#38bdf8","#a3e635","#f472b6","#facc15","#c084fc","#2dd4bf","#fb7185"];
+
+function sunFactor(t){const dl=SOL_LENGTH*DAY_FRACTION;if(t<=0||t>=dl)return 0;return Math.max(0,Math.sin(Math.PI*t/dl))}
+function phaseOf(t){const dl=SOL_LENGTH*DAY_FRACTION;if(t<dl*0.18)return"dawn";if(t<dl*0.82)return"day";if(t<dl)return"dusk";return"night"}
+const PHASE_LABEL={dawn:"Amanecer",day:"Día",dusk:"Atardecer",night:"Noche"};
+function capsFor(lv){return{oxygen:140+lv.oxygen*20,water:120+lv.extractor*30,food:100+lv.farm*25,power:160+lv.battery*60}}
+function stormWindowFor(seed,sol){let s=(seed*7919+sol*104729)%2147483647;if(s<=0)s+=2147483646;const n=()=>{s=(s*16807)%2147483647;return(s-1)/2147483646};if(sol<2)return null;if(n()>0.55)return null;const start=20+n()*130;const end=Math.min(SOL_LENGTH-5,start+35+n()*55);return{start,end}}
+function isStormTime(seed,sol,t){const w=stormWindowFor(seed,sol);return w&&t>=w.start&&t<=w.end}
+function hash(n){const s=Math.sin(n*127.1)*43758.5453123;return s-Math.floor(s)}
+function smooth(t){return t*t*(3-2*t)}
+function valueNoise(x,z,seed){const xi=Math.floor(x),zi=Math.floor(z),xf=x-xi,zf=z-zi,r=off=>{const s=Math.sin((seed*0.017+off)*127.1)*43758.5453123;return s-Math.floor(s)};const a=r(xi*12.9898+zi*78.233),b=r((xi+1)*12.9898+zi*78.233),c=r(xi*12.9898+(zi+1)*78.233),d=r((xi+1)*12.9898+(zi+1)*78.233);const u=smooth(xf),v=smooth(zf);return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v}
+function terrainHeight(x,z,seed){let h=0;h+=valueNoise(x/26,z/26,seed)*7.5-3.4;h+=valueNoise(x/11,z/11,seed+91)*2.6-1.3;h+=valueNoise(x/4.5,z/4.5,seed+513)*0.7-0.35;const d=Math.hypot(x-46,z-38);h-=Math.exp(-Math.pow(d/24,2))*9;h+=Math.exp(-Math.pow((d-27)/7,2))*3.2;h-=Math.exp(-Math.pow(Math.hypot(x+52,z+44)/17,2))*6;const dist=Math.hypot(x,z);const flat=Math.min(1,Math.max(0,(dist-BASE_RADIUS*0.55)/(BASE_RADIUS*1.1)));h*=0.06+0.94*flat;const edge=Math.max(0,dist-MAP_RADIUS*0.78);h+=Math.pow(edge/26,2)*12;return h}
+function makeRng(seed){let s=seed%2147483647;if(s<=0)s+=2147483646;return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646}}
+
+let game={seed:1234,sol:1,solTime:0,hull:100,beaconCharge:0,oxygen:START_RES.oxygen,water:START_RES.water,food:START_RES.food,power:START_RES.power,storm:false,blackout:false,status:"active"};
+let structures=STRUCT_ORDER.map(k=>({kind:k,level:STRUCTURE_DEFS[k].startLevel,active:true}));
+let inventory={ice:3,ore:2,silicon:1,scrap:1};
+let nodes=[];let events=[];let player=null;let bots=[];let canvas,ctx;
+let keys=new Set(),pointer={x:0,y:0};let mining=null;let miningProgress=0;
+let camera={x:0,y:0};let lastTime=0;
+
+function initGame(){
+game.seed=Math.floor(Math.random()*900000)+1000;
+const rng=makeRng(game.seed+4242);
+Object.entries(NODES_AT_START).forEach(([kind,n])=>{
+for(let i=0;i<n;i++){let x=0,z=0;
+for(let a=0;a<40;a++){const angle=rng()*Math.PI*2;const radius=BASE_RADIUS+8+rng()*(MAP_RADIUS-BASE_RADIUS-18);
+x=Math.cos(angle)*radius;z=Math.sin(angle)*radius;
+if(!nodes.some(o=>Math.hypot(o.x-x,o.z-z)<11))break}
+nodes.push({id:"n"+nodes.length,kind,x,z,amount:3+Math.floor(rng()*3),respawnAt:0,depleted:false})}
+});
+player={name:"Héroe",color:SUIT_COLORS[0],x:8,z:6,rot:-0.6,anim:"idle",inside:true,tank:100};
+bots=[
+{name:"Lira",color:SUIT_COLORS[1],x:-5,z:3,rot:0.5,anim:"idle",inside:true,tank:100,botTarget:null},
+{name:"Theron",color:SUIT_COLORS[2],x:3,z:-7,rot:1.2,anim:"idle",inside:true,tank:100,botTarget:null},
+{name:"Nyx",color:SUIT_COLORS[3],x:-3,z:-5,rot:-0.8,anim:"idle",inside:true,tank:100,botTarget:null}
+];
+events.push({kind:"story",message:"La nave se estrelló en el Elysium Planitia."});
+events.push({kind:"story",message:"Objetivo: construir la baliza de rescate y cargarla al 100%."});
+events.push({kind:"info",message:"WASD para mover, E para recolectar recursos cercanos."});
+}
+
+function startGame(){
+document.getElementById("menu").style.display="none";
+document.getElementById("game").style.display="block";
+canvas=document.getElementById("canvas");ctx=canvas.getContext("2d");
+initGame();resizeCanvas();lastTime=performance.now();
+canvas.addEventListener("pointerdown",e=>{pointer.x=e.clientX;pointer.y=e.clientY});
+document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();
+if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)){keys.add(k);e.preventDefault()}
+if(k==="e")startMining();
+if(k==="q")buildNearest();
+});
+document.addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
+requestAnimationFrame(loop);
+}
+
+function resizeCanvas(){
+const dpr=Math.min(2,window.devicePixelRatio||1);
+canvas.width=Math.floor(window.innerWidth*dpr);canvas.height=Math.floor(window.innerHeight*dpr);
+ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize",()=>{if(canvas)resizeCanvas()});
+
+function worldToScreen(x,z){
+const h=terrainHeight(x,z,game.seed);
+return{x:(x-z)*32,y:(x+z)*16-h*8};
+}
+
+function loop(now){
+if(game.status!=="active")return;
+const dt=Math.min(.15,(now-lastTime)/1000);lastTime=now;
+const gameDt=dt*TIME_SCALE;
+updateSimulation(gameDt);
+updatePlayer(dt);
+updateBots(dt);
+updateNodes(gameDt);
+updateMining(dt);
+camera=worldToScreen(player.x,player.z);
+render(now);
+updateUI();
+requestAnimationFrame(loop);
+}
+
+function updateSimulation(dt){
+const lv=Object.fromEntries(structures.map(s=>[s.kind,s.level]));
+const caps=capsFor(lv);
+const storm=isStormTime(game.seed,game.sol,game.solTime);
+const sun=sunFactor(game.solTime);
+const solar=lv.solar*RATES.solarPerLevel*sun*(storm?0.35:1);
+const demand=lv.oxygen*RATES.oxygenPowerPerLevel+lv.extractor*RATES.extractorPowerPerLevel+lv.farm*RATES.farmPowerPerLevel+(game.beaconCharge<100&&lv.beacon>0?RATES.beaconPower:0);
+const avail=game.power+solar*dt;
+const used=Math.min(avail,demand*dt);
+game.power=Math.min(caps.power,avail-used);
+const ratio=demand>0?used/(demand*dt):1;
+game.blackout=demand>0&&avail<=0.0001;
+const pCount=1+bots.filter(b=>b.inside).length;
+game.oxygen=Math.max(0,Math.min(caps.oxygen,game.oxygen+lv.oxygen*RATES.oxygenPerLevel*(0.35+0.65*ratio)*dt-pCount*RATES.oxygenPerPlayer*dt));
+game.water=Math.max(0,Math.min(caps.water,game.water+lv.extractor*RATES.extractorWaterPerLevel*ratio*dt-lv.oxygen*RATES.oxygenWaterPerLevel*ratio*dt-lv.farm*RATES.farmWaterPerLevel*ratio*dt-pCount*RATES.waterPerPlayer*dt));
+game.food=Math.max(0,Math.min(caps.food,game.food+lv.farm*RATES.farmFoodPerLevel*ratio*dt-pCount*RATES.foodPerPlayer*dt));
+if(game.beaconCharge<100&&lv.beacon>0&&demand>0){game.beaconCharge=Math.min(100,game.beaconCharge+RATES.beaconChargeRate*ratio*dt)}
+if(game.beaconCharge>=100){game.status="won";events.push({kind:"good",message:"¡Señal recibida! La nave de rescate entra en la atmósfera."})}
+if(storm)game.hull=Math.max(0,game.hull-RATES.stormHullDamage*dt);
+if(game.hull<=0){game.status="lost";events.push({kind:"danger",message:"El hábitat se despresurizó."})}
+if(game.oxygen<=0.02){events.push({kind:"danger",message:"¡Sin oxígeno!"})}
+if(storm!==game.storm){events.push(storm?{kind:"danger",message:"¡Tormenta de polvo! Paneles al 35%."}:{kind:"good",message:"La tormenta amaina."})}
+game.storm=storm;
+game.solTime+=dt;
+if(game.solTime>=SOL_LENGTH){game.solTime-=SOL_LENGTH;game.sol++;events.push({kind:"story",message:`--- Sol ${game.sol} ---`})}
+}
+
+function updatePlayer(dt){
+const speed=4*dt;let mx=0,my=0;
+if(keys.has("w")||keys.has("arrowup")){mx+=Math.cos(player.rot);my+=Math.sin(player.rot)}
+if(keys.has("s")||keys.has("arrowdown")){mx-=Math.cos(player.rot);my-=Math.sin(player.rot)}
+if(keys.has("a")||keys.has("arrowleft"))player.rot-=2.5*dt;
+if(keys.has("d")||keys.has("arrowright"))player.rot+=2.5*dt;
+if(mx||my){const len=Math.hypot(mx,my);mx/=len;my/=len;
+const nx=player.x+mx*speed,nz=my?player.z+my*speed:player.z;
+const nh=Math.abs(terrainHeight(nx,nz,game.seed));
+if(Math.hypot(nx,nz)<MAP_RADIUS-5){player.x=nx;player.z=nz;player.anim="walk"}else{player.anim="idle"}
+}else{player.anim="idle"}
+player.inside=Math.hypot(player.x,player.z)<BASE_RADIUS;
+// Tank drain
+player.tank=Math.max(0,player.tank-0.02*dt);
+if(player.tank<=0&&player.inside){player.tank=20}
+if(player.tank<=0&&!player.inside){game.hull=Math.max(0,game.hull-0.5*dt)}
+}
+
+function updateBots(dt){
+bots.forEach(b=>{
+const speed=3*dt;
+// Simple AI: wander near base, occasionally mine
+if(!b.botTarget||Math.hypot(b.x-b.botTarget.x,b.z-b.botTarget.z)<2){
+const eligible=nodes.filter(n=>!n.depleted&&n.amount>0&&Math.hypot(n.x,n.z)>BASE_RADIUS+2);
+if(eligible.length>0)b.botTarget=eligible[Math.floor(Math.random()*eligible.length)];
+else{b.botTarget={x:(Math.random()-.5)*20,z:(Math.random()-.5)*20}}
+}
+const tx=b.botTarget.x,tz=b.botTarget.z;
+const dx=tx-b.x,dz=tz-b.z,d=Math.hypot(dx,dz);
+if(d>1.5){b.x+=dx/d*speed;b.z+=dz/d*speed;b.rot=Math.atan2(dz,dx);b.anim="walk"}
+else{b.anim="idle";
+// Mine if close to node
+const node=nodes.find(n=>n.id===b.botTarget?.id&&!n.depleted&&n.amount>0);
+if(node){node.amount--;inventory[node.kind]=(inventory[node.kind]||0)+MINE_YIELD[node.kind]?.qty||2;
+if(node.amount<=0){node.depleted=true;node.respawnAt=Date.now()+NODE_RESPAWN*1000}
+b.botTarget=null}}
+b.inside=Math.hypot(b.x,b.z)<BASE_RADIUS;
+});
+}
+const MINE_YIELD={ice:{item:"ice",qty:4},ore:{item:"ore",qty:3},silicon:{item:"silicon",qty:2},scrap:{item:"scrap",qty:3}};
+
+function updateNodes(dt){
+nodes.forEach(n=>{
+if(n.depleted&&n.respawnAt&&Date.now()>n.respawnAt){n.depleted=false;n.amount=3+Math.floor(Math.random()*3)}
+});
+}
+
+function startMining(){
+if(mining)return;
+let nearest=null,nd=Infinity;
+nodes.forEach(n=>{if(n.depleted||n.amount<=0)return;const d=Math.hypot(n.x-player.x,n.z-player.z);if(d<MINE_RANGE&&d<nd){nd=d;nearest=n}});
+if(!nearest)return;
+mining=nearest;miningProgress=0;
+document.getElementById("mining-bar").style.display="block";
+}
+
+function updateMining(dt){
+if(!mining)return;
+miningProgress+=dt*1000;
+document.getElementById("mining-fill").style.width=Math.min(100,miningProgress/MINE_DURATION_MS*100)+"%";
+if(miningProgress>=MINE_DURATION_MS){
+const y=MINE_YIELD[mining.kind];
+inventory[y.item]=(inventory[y.item]||0)+y.qty;
+mining.amount--;
+events.push({kind:"info",message:`+${y.qty} ${ITEMS[y.item].label}`});
+if(mining.amount<=0){mining.depleted=true;mining.respawnAt=Date.now()+NODE_RESPAWN*1000}
+mining=null;miningProgress=0;
+document.getElementById("mining-bar").style.display="none";
+}
+}
+
+function buildNearest(){
+// Find upgradeable structure
+let best=null,bestD=Infinity;
+structures.forEach(s=>{if(s.level>=STRUCTURE_DEFS[s.kind].maxLevel)return;
+const cost=STRUCTURE_DEFS[s.kind].cost(s.level+1);
+const canAfford=Object.entries(cost).every(([k,v])=>(inventory[k]||0)>=v);
+if(canAfford){best=s;bestD=0}
+});
+if(!best)return;
+const cost=STRUCTURE_DEFS[best.kind].cost(best.level+1);
+Object.entries(cost).forEach(([k,v])=>inventory[k]-=v);
+best.level++;
+events.push({kind:"good",message:`${STRUCTURE_DEFS[best.kind].icon} ${STRUCTURE_DEFS[best.kind].label} mejorado al nivel ${best.level}`});
+}
+
+function render(time){
+const w=window.innerWidth,h=window.innerHeight;
+const phase=phaseOf(game.solTime);
+const skyColors={dawn:"#2a1520",day:"#3a2515",dusk:"#2a1518",night:"#0a0808"};
+ctx.fillStyle=skyColors[phase];ctx.fillRect(0,0,w,h);
+ctx.save();
+ctx.translate(w/2-camera.x,h/2-camera.y);
+// Draw terrain tiles
+const viewR=18;
+for(let z=Math.floor(player.z)-viewR;z<=Math.ceil(player.z)+viewR;z++){
+for(let x=Math.floor(player.x)-viewR;x<=Math.ceil(player.x)+viewR;x++){
+const s=worldToScreen(x,z);
+if(s.x<-100||s.x>w+100||s.y<-200||s.y>h+200)continue;
+const h0=terrainHeight(x,z,game.seed);
+const h1=terrainHeight(x+1,z,game.seed);
+const h2=terrainHeight(x+1,z+1,game.seed);
+const h3=terrainHeight(x,z+1,game.seed);
+const s0=worldToScreen(x,z),s1=worldToScreen(x+1,z),s2=worldToScreen(x+1,z+1),s3=worldToScreen(x,z+1);
+const dist=Math.hypot(x,z);
+const inBase=dist<BASE_RADIUS;
+const baseDist=Math.max(0,dist-BASE_RADIUS);
+const dark=Math.max(0,1-baseDist/40)*0.3;
+let r,g,b;
+if(inBase){r=140;g=120;b=90}
+else{const t=(h0+2)/8;r=Math.floor(80+t*40-dark*100);g=Math.floor(60+t*30-dark*80);b=Math.floor(40+t*20-dark*60)}
+const nightDark=phase==="night"?(1-sunFactor(game.solTime)):0;
+r=Math.floor(r*(1-nightDark*.7));g=Math.floor(g*(1-nightDark*.7));b=Math.floor(b*(1-nightDark*.7));
+ctx.fillStyle=`rgb(${r},${g},${b})`;
+ctx.beginPath();ctx.moveTo(s0.x,s0.y);ctx.lineTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.lineTo(s3.x,s3.y);ctx.closePath();ctx.fill();
+}}
+// Draw base
+const bs=worldToScreen(0,0);
+ctx.fillStyle="rgba(160,140,110,0.3)";ctx.beginPath();ctx.arc(bs.x,bs.y,BASE_RADIUS*16,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#8a7a60";ctx.beginPath();ctx.arc(bs.x,bs.y,12,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font="8px sans-serif";ctx.textAlign="center";ctx.fillText("🏠",bs.x,bs.y+3);
+// Draw nodes
+nodes.forEach(n=>{
+if(n.depleted||n.amount<=0)return;
+const ns=worldToScreen(n.x,n.z);
+const item=ITEMS[n.kind];
+const pulse=Math.sin(time*.005+n.x)*3;
+ctx.fillStyle=item.color;ctx.shadowColor=item.color;ctx.shadowBlur=8;
+ctx.beginPath();ctx.arc(ns.x,ns.y+pulse,6,0,Math.PI*2);ctx.fill();
+ctx.shadowBlur=0;
+ctx.fillStyle="#fff";ctx.font="8px sans-serif";ctx.textAlign="center";
+ctx.fillText(item.icon,ns.x,ns.y+pulse+3);
+ctx.fillStyle="#fff";ctx.font="7px sans-serif";
+ctx.fillText(n.amount,ns.x,ns.y+pulse+12);
+});
+// Draw bots
+bots.forEach(b=>drawAstronaut(b,time));
+// Draw player
+drawAstronaut(player,time,true);
+// Mining line
+if(mining){
+const ms=worldToScreen(mining.x,mining.z);
+const ps=worldToScreen(player.x,player.z);
+ctx.strokeStyle="#ff6600";ctx.lineWidth=2;ctx.setLineDash([4,4]);
+ctx.beginPath();ctx.moveTo(ps.x,ps.y);ctx.lineTo(ms.x,ms.y);ctx.stroke();
+ctx.setLineDash([]);
+}
+ctx.restore();
+}
+
+function drawAstronaut(p,time,isLocal=false){
+const s=worldToScreen(p.x,p.z);
+const bounce=p.anim==="walk"?Math.sin(time*.01)*2:0;
+// Shadow
+ctx.fillStyle="rgba(0,0,0,0.3)";ctx.beginPath();ctx.ellipse(s.x,s.y+2,8,3,0,0,Math.PI*2);ctx.fill();
+// Body
+ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(s.x,s.y-8+bounce,6,0,Math.PI*2);ctx.fill();
+// Visor
+ctx.fillStyle="#1a3a5a";ctx.beginPath();ctx.arc(s.x+Math.cos(p.rot)*2,s.y-10+bounce,3,0,Math.PI*2);ctx.fill();
+// Name
+ctx.fillStyle=isLocal?"#ffd700":"#fff";ctx.font=isLocal?"bold 9px sans-serif":"8px sans-serif";ctx.textAlign="center";
+ctx.fillText(p.name,s.x,s.y-16+bounce);
+// Tank indicator
+if(!p.inside){ctx.fillStyle="#333";ctx.fillRect(s.x-6,s.y+4,12,2);ctx.fillStyle=p.tank>30?"#38bdf8":"#ff3333";ctx.fillRect(s.x-6,s.y+4,12*Math.max(0,p.tank/100),2)}
+if(isLocal){ctx.strokeStyle="#ffd700";ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.x,s.y+2,12,0,Math.PI*2);ctx.stroke()}
+}
+
+function updateUI(){
+// Resources
+const caps=capsFor(Object.fromEntries(structures.map(s=>[s.kind,s.level])));
+const phase=phaseOf(game.solTime);
+const phaseLabel=PHASE_LABEL[phase];
+document.getElementById("solLabel").textContent=`Sol ${game.sol} — ${phaseLabel}${game.storm?" ⚠️ TORMENTA":""}`;
+const h=Math.floor((game.solTime/SOL_LENGTH)*24);const m=Math.floor(((game.solTime/SOL_LENGTH)*24-h)*60);
+document.getElementById("solTime").textContent=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")} | ☀️ ${Math.round(sunFactor(game.solTime)*100)}%`;
+document.getElementById("stormWarn").style.display=game.storm?"block":"none";
+const resources=[
+{label:"Oxígeno",icon:"🫁",val:game.oxygen,cap:caps.oxygen,color:"#38bdf8",net:""},
+{label:"Agua",icon:"💧",val:game.water,cap:caps.water,color:"#06b6d4",net:""},
+{label:"Comida",icon:"🍎",val:game.food,cap:caps.food,color:"#22c55e",net:""},
+{label:"Energía",icon:"⚡",val:game.power,cap:caps.power,color:"#facc15",net:""},
+{label:"Casco",icon:"🛡️",val:game.hull,cap:100,color:"#f97316",net:""},
+{label:"Baliza",icon:"📡",val:game.beaconCharge,cap:100,color:"#a855f7",net:""}
+];
+document.getElementById("resBars").innerHTML=resources.map(r=>
+`<div class="res-bar"><div class="res-fill" style="width:${(r.val/r.cap)*100}%;background:${r.color}"></div>
+<div class="res-label">${r.icon} ${Math.floor(r.val)}/${r.cap}</div></div>`
+).join("");
+// Inventory
+document.getElementById("invItems").innerHTML=Object.entries(ITEMS).map(([k,v])=>
+`<div class="inv-item"><span>${v.icon} ${v.label}</span><span style="color:${v.color}">${inventory[k]||0}</span></div>`
+).join("");
+// Structures
+document.getElementById("structList").innerHTML=structures.map(s=>{
+const def=STRUCTURE_DEFS[s.kind];const cost=def.cost(s.level+1);const maxed=s.level>=def.maxLevel;
+const canAfford=!maxed&&Object.entries(cost).every(([k,v])=>(inventory[k]||0)>=v);
+return`<div class="struct-row"><span class="struct-icon">${def.icon}</span>
+<div class="struct-info"><div class="struct-name">${def.label} Lv${s.level}</div>
+<div class="struct-effect">${def.effect(s.level)}</div>
+${maxed?"<div style='color:#33ff88;font-size:.75em'>MAX</div>":`<div class="struct-cost">Coste: ${Object.entries(cost).map(([k,v])=>`${ITEMS[k].icon}${v}`).join(" ")}</div>`}</div>
+${maxed?"":`<button class="upgrade-btn" ${canAfford?"":"disabled"} onclick="upgradeStruct('${s.kind}')">⬆️</button>`}</div>`;
+}).join("");
+// Team
+const allPlayers=[player,...bots];
+document.getElementById("teamPanel").innerHTML=allPlayers.map(p=>
+`<div class="team-member"><div class="team-dot" style="background:${p.color}"></div>${p.name}${p.inside?" 🏠":" 🚶"}</div>`
+).join("");
+// Events
+document.getElementById("eventsPanel").innerHTML=events.slice(-12).map(e=>
+`<div class="event ${e.kind}">${e.message}</div>`
+).join("");
+document.getElementById("eventsPanel").scrollTop=999;
+// Game over
+if(game.status!=="active"){
+ctx.fillStyle="rgba(0,0,0,0.7)";ctx.fillRect(0,0,window.innerWidth,window.innerHeight);
+ctx.fillStyle=game.status==="won"?"#33ff88":"#ff3333";ctx.font="bold 48px sans-serif";ctx.textAlign="center";
+ctx.fillText(game.status==="won"?"¡RESCATADOS!":"MISIÓN FALLIDA",window.innerWidth/2,window.innerHeight/2-20);
+ctx.font="20px sans-serif";ctx.fillStyle="#fff";
+ctx.fillText(game.status==="won"?"La baliza funcionó y la nave de rescate llegó.":"El hábitat fue destruido.",window.innerWidth/2,window.innerHeight/2+20);
+ctx.fillText("Recarga la página para jugar de nuevo.",window.innerWidth/2,window.innerHeight/2+50);
+}
+}
+
+window.upgradeStruct=function(kind){
+const s=structures.find(x=>x.kind===kind);if(!s)return;
+const cost=STRUCTURE_DEFS[s.kind].cost(s.level+1);
+if(!Object.entries(cost).every(([k,v])=>(inventory[k]||0)>=v))return;
+Object.entries(cost).forEach(([k,v])=>inventory[k]-=v);
+s.level++;
+events.push({kind:"good",message:`${STRUCTURE_DEFS[s.kind].icon} ${STRUCTURE_DEFS[s.kind].label} → Nivel ${s.level}`});
+};
+</script>
+</body>
+</html>

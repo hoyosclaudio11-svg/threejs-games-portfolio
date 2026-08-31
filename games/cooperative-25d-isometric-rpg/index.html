@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cooperative 2.5D Isometric RPG</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:'Segoe UI',sans-serif;color:#e0e0e0}
+#game{position:relative;width:100%;height:100%}
+canvas{display:block;width:100%;height:100%}
+#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:100}
+#menu h1{font-size:2.5em;margin-bottom:10px;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,0.3)}
+#menu p{margin-bottom:30px;color:#aaa;font-size:1.1em}
+.class-select{display:flex;gap:20px;margin-bottom:30px;flex-wrap:wrap;justify-content:center}
+.class-card{width:180px;padding:20px;border-radius:12px;cursor:pointer;border:2px solid #333;transition:all 0.3s;text-align:center}
+.class-card:hover,.class-card.selected{border-color:#ffd700;transform:translateY(-5px);box-shadow:0 5px 20px rgba(255,215,0,0.2)}
+.class-card h3{margin:8px 0 4px;font-size:1.1em}
+.class-card .role{font-size:0.85em;color:#aaa;margin-bottom:8px}
+.class-card .stats{font-size:0.8em;line-height:1.6;color:#ccc}
+#startBtn{padding:15px 40px;font-size:1.2em;background:#ffd700;color:#1a1a2e;border:none;border-radius:8px;cursor:pointer;font-weight:bold}
+#startBtn:hover{background:#ffed4a}
+#hud{position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:10}
+#hud>div{pointer-events:auto}
+.hud-top{display:flex;justify-content:space-between;padding:10px}
+.player-bars,.team-bars{display:flex;flex-direction:column;gap:4px}
+.bar-wrap{width:200px;height:20px;background:#222;border-radius:4px;overflow:hidden;position:relative}
+.bar-fill{height:100%;transition:width 0.3s;border-radius:4px}
+.bar-hp .bar-fill{background:linear-gradient(90deg,#c0392b,#e74c3c)}
+.bar-mp .bar-fill{background:linear-gradient(90deg,#2980b9,#3498db)}
+.bar-label{position:absolute;top:0;left:6px;font-size:0.7em;line-height:20px;text-shadow:1px 1px 2px #000}
+.zone-name{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:1.2em;color:#ffd700;text-shadow:0 0 10px rgba(255,215,0,0.5);pointer-events:none}
+.minimap{position:absolute;bottom:10px;left:10px;border:2px solid #555;border-radius:4px;background:#000}
+.quest-panel{position:absolute;top:60px;right:10px;width:240px;background:rgba(0,0,0,0.7);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto}
+.quest-panel h3{font-size:0.9em;color:#ffd700;margin-bottom:8px}
+.quest{margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;border-left:3px solid #555}
+.quest.active{border-left-color:#ffd700}
+.quest.complete{border-left-color:#2ecc71;opacity:0.6}
+.quest-title{font-size:0.8em;font-weight:bold}
+.quest-progress{font-size:0.7em;color:#aaa;margin-top:3px}
+.chat-box{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:400px;max-height:120px;overflow-y:auto;background:rgba(0,0,0,0.5);border-radius:8px;padding:8px;font-size:0.75em}
+.chat-msg{margin-bottom:3px}
+.chat-msg.system{color:#ffd700}
+.chat-msg.player{color:#8ff0b5}
+.controls{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);border-radius:8px;padding:10px;font-size:0.7em;line-height:1.8}
+.ability-cooldown{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
+.ability-icon{width:50px;height:50px;border-radius:8px;background:rgba(0,0,0,0.7);border:2px solid #555;display:flex;align-items:center;justify-content:center;font-size:1.5em;position:relative}
+.ability-icon.ready{border-color:#ffd700}
+.ability-icon .cd{position:absolute;bottom:-15px;font-size:0.6em;color:#aaa}
+</style>
+</head>
+<body>
+<div id="menu">
+<h1>⚔️ Expedición de Bruma</h1>
+<p>RPG Isométrico Cooperativo — Elige tu héroe y únete a la expedición</p>
+<div class="class-select" id="classSelect"></div>
+<button id="startBtn" onclick="startGame()">⚔️ Iniciar Expedición</button>
+</div>
+<div id="game" style="display:none">
+<canvas id="canvas"></canvas>
+<div id="hud">
+<div class="zone-name" id="zoneName">Aldea de Bruma</div>
+<div class="hud-top">
+<div class="player-bars" id="playerBars"></div>
+<div style="text-align:center">
+<div id="questCount" style="font-size:0.8em;color:#ffd700"></div>
+</div>
+<div class="team-bars" id="teamBars"></div>
+</div>
+<div class="quest-panel" id="questPanel"></div>
+<div class="chat-box" id="chatBox"></div>
+<div class="controls">
+<b>Controles:</b><br>
+WASD — Mover | Click — Atacar<br>
+Q — Habilidad | E — Interactuar<br>
+R — Revivir (si caído)
+</div>
+<div class="ability-cooldown" id="abilityCooldown"></div>
+<canvas class="minimap" id="minimap" width="120" height="120"></canvas>
+</div>
+</div>
+<script>
+// === CONSTANTS ===
+const MAP_SIZE=72, TILE_W=74, TILE_H=38, HEIGHT_SCALE=13;
+const TILE={GRASS:0,MEADOW:1,ROAD:2,FOREST:3,TREE:4,WATER:5,BRIDGE:6,SWAMP:7,MUD:8,ASH:9,ROCK:10,MOUNTAIN:11,SNOW:12,RUINS:13,GATE:14,LAVA:15,VILLAGE:16,HOUSE:17,SAND:18,CRYSTAL:19};
+const BLOCKED=new Set([TILE.TREE,TILE.WATER,TILE.ROCK,TILE.MOUNTAIN,TILE.GATE,TILE.LAVA,TILE.HOUSE,TILE.CRYSTAL]);
+const PROP_TILES=new Set([TILE.TREE,TILE.ROCK,TILE.MOUNTAIN,TILE.HOUSE,TILE.CRYSTAL,TILE.GATE]);
+const VILLAGE={x:12.5,y:12.5}, SUMMIT={x:65.5,y:65.5};
+const TILE_STYLE={[TILE.GRASS]:{top:"#4f8f45",side:"#2f5a2b",alt:"#57994b"},[TILE.MEADOW]:{top:"#5fa64f",side:"#35682f",alt:"#69b158"},[TILE.ROAD]:{top:"#a58f6b",side:"#6b5a42"},[TILE.FOREST]:{top:"#3c7c3f",side:"#224a26",alt:"#44883f"},[TILE.TREE]:{top:"#2f6b34",side:"#1c4221"},[TILE.WATER]:{top:"#2f6f9e",side:"#1c4666"},[TILE.BRIDGE]:{top:"#8a6a44",side:"#5a4429"},[TILE.SWAMP]:{top:"#4c6b45",side:"#2b402a",alt:"#556f45"},[TILE.MUD]:{top:"#3b4d33",side:"#222e1e"},[TILE.ASH]:{top:"#5b5350",side:"#37312f",alt:"#665d59"},[TILE.ROCK]:{top:"#7c7a76",side:"#4b4a47"},[TILE.MOUNTAIN]:{top:"#6b6f7a",side:"#3d4049"},[TILE.SNOW]:{top:"#dfe8f5",side:"#9fb0c9",alt:"#eef4ff"},[TILE.RUINS]:{top:"#8f8474",side:"#57503f",alt:"#9a8f7d"},[TILE.GATE]:{top:"#5c4a3a",side:"#3a2e24"},[TILE.LAVA]:{top:"#c8421f",side:"#7a2312"},[TILE.VILLAGE]:{top:"#b39a72",side:"#7a6448",alt:"#bfa479"},[TILE.HOUSE]:{top:"#8f7455",side:"#5c4632"},[TILE.CRYSTAL]:{top:"#3b2a44",side:"#1f1626"}};
+
+// === ZONES ===
+const ZONES=[
+{id:"villa",name:"Aldea de Bruma",cx:12,cy:12,r:10,ground:TILE.VILLAGE,tint:"#ffd9a0",kinds:[],maxEnemies:0,level:1,lore:"Último hogar tranquilo antes del mundo roto."},
+{id:"pradera",name:"Praderas de Alden",cx:25,cy:20,r:14,ground:TILE.GRASS,tint:"#9fe08a",kinds:["limo","lobo"],maxEnemies:10,level:1,lore:"La hierba aún respira, pero algo la corrompe."},
+{id:"rio",name:"Vado del Serpe",cx:37,cy:28,r:10,ground:TILE.SAND,tint:"#8fd8e8",kinds:["serpiente"],maxEnemies:6,level:4,lore:"El único puente sobre un río que corre negro."},
+{id:"bosque",name:"Bosque Susurrante",cx:23,cy:40,r:15,ground:TILE.FOREST,tint:"#5fbf7a",kinds:["arana","ent"],maxEnemies:10,level:3,lore:"Los árboles recuerdan nombres que nadie pronuncia."},
+{id:"cienaga",name:"Ciénaga de Huesos",cx:39,cy:51,r:14,ground:TILE.SWAMP,tint:"#7fa06b",kinds:["espectro","sapo"],maxEnemies:10,level:6,lore:"Aquí se hundió el primer ejército de la luz."},
+{id:"ruinas",name:"Ruinas de Kaldrath",cx:53,cy:40,r:12,ground:TILE.RUINS,tint:"#cbb7a1",kinds:["esqueleto","golem"],maxEnemies:10,level:8,boss:"liche",lore:"La biblioteca donde se leyó la palabra prohibida."},
+{id:"senda",name:"Senda de Ceniza",cx:52,cy:57,r:11,ground:TILE.ASH,tint:"#d08a6a",kinds:["acechante","diablillo"],maxEnemies:10,level:10,lore:"Ceniza tibia de los que intentaron subir antes."},
+{id:"montana",name:"La Última Montaña",cx:65,cy:65,r:14,ground:TILE.SNOW,tint:"#bcd4ff",kinds:["guardian_sombra"],maxEnemies:8,level:12,boss:"corazon",lore:"El techo del mundo. Algo late debajo de la cima."}
+];
+const ZONE_BY_ID=Object.fromEntries(ZONES.map(z=>[z.id,z]));
+
+// === HERO CLASSES ===
+const HERO_CLASSES={
+guardian:{key:"guardian",name:"Guardián",role:"Tanque / Cuerpo a cuerpo",color:"#f59f5b",accent:"#7c3d16",maxHp:155,maxMp:60,damage:15,speed:3.5,range:1.8,attackCooldownMs:620,ability:{name:"Torbellino",description:"Giro de hacha que golpea a todos los enemigos cercanos.",cost:20,cooldownMs:5500,radius:2.8,power:26,range:0},blurb:"Muro de la compañía. Aguanta el frente."},
+maga:{key:"maga",name:"Maga",role:"Daño a distancia",color:"#7cc4ff",accent:"#1b3f78",maxHp:95,maxMp:115,damage:21,speed:3.3,range:6.2,attackCooldownMs:780,ability:{name:"Meteorito",description:"Invoca un meteorito en el punto señalado.",cost:34,cooldownMs:7500,radius:2.4,power:44,range:8},blurb:"Arrasa grupos desde la retaguardia."},
+cleriga:{key:"cleriga",name:"Clériga",role:"Apoyo / Sanación",color:"#8ff0b5",accent:"#186b47",maxHp:112,maxMp:130,damage:12,speed:3.4,range:4.6,attackCooldownMs:700,ability:{name:"Plegaria de Luz",description:"Cura a todos los héroes cercanos.",cost:30,cooldownMs:6500,radius:5.5,power:52,range:0},blurb:"Sin ella la expedición no llega a la montaña."},
+sombra:{key:"sombra",name:"Sombra",role:"Móvil / Explorador",color:"#d59bff",accent:"#4a1f6b",maxHp:104,maxMp:85,damage:18,speed:4.2,range:1.9,attackCooldownMs:500,ability:{name:"Paso Umbrío",description:"Se desliza cortando a quien cruce.",cost:18,cooldownMs:4500,radius:1.4,power:30,range:6.5},blurb:"Abre camino y escapa de los sitios imposibles."}
+};
+const CLASS_LIST=Object.values(HERO_CLASSES);
+
+// === BESTIARY ===
+const BESTIARY={
+limo:{kind:"limo",name:"Limo corrupto",hp:34,damage:6,speed:1.1,aggro:5.5,attackRange:1.1,attackMs:1300,xp:14,size:0.42,color:"#9bd94f",dark:"#4d7a1f",shape:"blob"},
+lobo:{kind:"lobo",name:"Lobo de bruma",hp:44,damage:9,speed:2.5,aggro:7,attackRange:1.2,attackMs:1000,xp:20,size:0.46,color:"#9aa6b8",dark:"#3c4553",shape:"beast"},
+serpiente:{kind:"serpiente",name:"Serpiente del vado",hp:58,damage:12,speed:2.2,aggro:6,attackRange:1.3,attackMs:1100,xp:26,size:0.44,color:"#5fc9a8",dark:"#1d6b52",shape:"beast"},
+arana:{kind:"arana",name:"Araña silbante",hp:52,damage:11,speed:2.7,aggro:7.5,attackRange:1.2,attackMs:900,xp:24,size:0.44,color:"#a86bd6",dark:"#3d1f57",shape:"spider"},
+ent:{kind:"ent",name:"Ent marchito",hp:110,damage:16,speed:1.2,aggro:6,attackRange:1.5,attackMs:1500,xp:42,size:0.62,color:"#6f8f4b",dark:"#33471f",shape:"construct"},
+sapo:{kind:"sapo",name:"Sapo de huesos",hp:84,damage:14,speed:1.6,aggro:6,attackRange:1.3,attackMs:1200,xp:34,size:0.5,color:"#89b06a",dark:"#3c5228",shape:"blob"},
+espectro:{kind:"espectro",name:"Espectro del pantano",hp:76,damage:18,speed:2.1,aggro:8,attackRange:1.4,attackMs:1100,xp:40,size:0.5,color:"#a9f0e0",dark:"#1f6b62",shape:"spirit",flying:true},
+esqueleto:{kind:"esqueleto",name:"Esqueleto de Kaldrath",hp:105,damage:20,speed:2.3,aggro:8,attackRange:1.4,attackMs:1050,xp:55,size:0.48,color:"#e8e2cf",dark:"#5b5647",shape:"bones"},
+golem:{kind:"golem",name:"Gólem de archivo",hp:190,damage:26,speed:1.1,aggro:6.5,attackRange:1.6,attackMs:1600,xp:78,size:0.66,color:"#b9a88f",dark:"#4a3f33",shape:"construct"},
+acechante:{kind:"acechante",name:"Acechante de ceniza",hp:140,damage:28,speed:3.1,aggro:9,attackRange:1.3,attackMs:900,xp:90,size:0.5,color:"#ff9d6b",dark:"#6b2a12",shape:"fiend"},
+diablillo:{kind:"diablillo",name:"Diablillo de ascua",hp:110,damage:22,speed:2.6,aggro:8,attackRange:3.2,attackMs:1200,xp:80,size:0.42,color:"#ffd166",dark:"#8a4b0f",shape:"fiend",flying:true},
+guardian_sombra:{kind:"guardian_sombra",name:"Guardián de sombra",hp:240,damage:34,speed:2.4,aggro:10,attackRange:1.6,attackMs:1100,xp:150,size:0.62,color:"#8d8bff",dark:"#241f66",shape:"fiend"},
+liche:{kind:"liche",name:"Liche Archivista",hp:900,damage:38,speed:1.9,aggro:14,attackRange:5.5,attackMs:1400,xp:900,size:0.86,color:"#c8b6ff",dark:"#3b2370",shape:"boss"},
+corazon:{kind:"corazon",name:"Corazón de la Sombra",hp:2600,damage:46,speed:2.1,aggro:18,attackRange:6.5,attackMs:1500,xp:2600,size:1.05,color:"#ff5c7a",dark:"#4a0d20",shape:"boss"}
+};
+
+// === CAMPAIGN ===
+const CAMPAIGN=[
+{code:"q1_pradera",title:"I · La corrupción en la pradera",summary:"Limpia 8 alimañas en las Praderas de Alden.",zone:"pradera",kind:"kill",target:"pradera",required:8,xp:120},
+{code:"q2_runas",title:"II · Las runas susurrantes",summary:"Recupera las 4 runas del Bosque.",zone:"bosque",kind:"collect",target:"runa",required:4,xp:180},
+{code:"q3_vado",title:"III · El Vado del Serpe",summary:"Cruza el río negro.",zone:"rio",kind:"visit",target:"rio",required:1,xp:150},
+{code:"q4_cienaga",title:"IV · La Ciénaga de Huesos",summary:"Derrota 10 horrores del pantano.",zone:"cienaga",kind:"kill",target:"cienaga",required:10,xp:240},
+{code:"q5_liche",title:"V · El Liche Archivista",summary:"Derrótalo en las Ruinas de Kaldrath.",zone:"ruinas",kind:"boss",target:"liche",required:1,xp:600,opensGate:true},
+{code:"q6_senda",title:"VI · La Senda de Ceniza",summary:"Elimina 6 criaturas de ceniza.",zone:"senda",kind:"kill",target:"senda",required:6,xp:420},
+{code:"q7_cima",title:"VII · La Última Montaña",summary:"Alcanza la cima nevada.",zone:"montana",kind:"visit",target:"montana",required:1,visitRadius:5.4,xp:500},
+{code:"q8_fuente",title:"VIII · La Fuente del Poder",summary:"Destruye el Corazón de la Sombra.",zone:"montana",kind:"boss",target:"corazon",required:1,xp:2000,finale:true}
+];
+
+// === UTILITIES ===
+function mulberry32(a){return()=>{a=(a+0x6d2b79f5)>>>0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
+function lerp(a,b,t){return a+(b-a)*t}
+function hash2(x,y){const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n)}
+function hexToRgb(h){const c=h.replace("#","");const f=c.length===3?c.split("").map(c=>c+c).join(""):c;const n=parseInt(f,16);return[(n>>16)&255,(n>>8)&255,n&255]}
+function levelFromXp(xp){return Math.max(1,Math.floor(Math.sqrt(xp/55))+1)}
+function statsFor(ck,lv){const c=HERO_CLASSES[ck];const l=lv-1;return{maxHp:Math.round(c.maxHp+l*14),maxMp:Math.round(c.maxMp+l*10),damage:Math.round(c.damage+l*3.4),speed:c.speed+l*0.03}}
+
+// === WORLD GENERATION ===
+function heightAt(x,y){
+const base=0.55+0.35*Math.sin(x*0.19+0.7)*Math.cos(y*0.16-0.3)+0.22*Math.sin((x+y)*0.085+1.1);
+const d=Math.hypot(x-SUMMIT.x,y-SUMMIT.y);
+const cone=Math.max(0,1-d/27);
+const ridge=Math.max(0,1-d/12);
+return base*0.85+Math.pow(cone,1.45)*5.4+Math.pow(ridge,2)*3.6;
+}
+function zoneAt(x,y){let best="yerma",bestScore=0.99;for(const z of ZONES){const d=Math.hypot(x-z.cx,y-z.cy)/z.r;if(d<1&&d<bestScore){bestScore=d;best=z.id}}return best}
+function buildWorld(seed){
+const rand=mulberry32(seed*2654435761);const n=MAP_SIZE;
+const tiles=new Uint8Array(n*n);const height=new Float32Array(n*n);
+const idx=(x,y)=>y*n+x;
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const z=zoneAt(x+.5,y+.5);const def=ZONE_BY_ID[z]||ZONE_BY_ID.pradera;
+const h=heightAt(x+.5,y+.5);height[idx(x,y)]=h;
+let tile=def.ground;
+if(def.ground===TILE.GRASS&&rand()<.35)tile=TILE.MEADOW;
+if(z==="yerma")tile=h>5.6?TILE.MOUNTAIN:rand()<.5?TILE.GRASS:TILE.MEADOW;
+if(z==="montana"&&h>5.9&&Math.hypot(x-SUMMIT.x,y-SUMMIT.y)>3.6)tile=TILE.MOUNTAIN;
+tiles[idx(x,y)]=tile;
+}
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const f=0.62*(x+.5)+0.78*(y+.5)-45.4;
+if(Math.abs(f)<2.1)tiles[idx(x,y)]=TILE.WATER;
+}
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const t=tiles[idx(x,y)];const zone=zoneAt(x+.5,y+.5);const r=rand();
+if(t===TILE.FOREST&&r<.2)tiles[idx(x,y)]=TILE.TREE;
+else if(t===TILE.SWAMP&&r<.16)tiles[idx(x,y)]=TILE.MUD;
+else if(t===TILE.RUINS&&r<.1)tiles[idx(x,y)]=TILE.ROCK;
+else if(t===TILE.ASH&&r<.07)tiles[idx(x,y)]=TILE.ROCK;
+else if(t===TILE.SNOW&&r<.08)tiles[idx(x,y)]=TILE.ROCK;
+else if((t===TILE.GRASS||t===TILE.MEADOW)&&r<.02)tiles[idx(x,y)]=TILE.TREE;
+}
+const road=new Uint8Array(n*n);
+const ROAD_WAYPOINTS=[[12.5,12.5],[19,15],[25,20],[31,24],[37,27],[37,31],[31,36],[23,40],[27,46],[33,49],[39,51],[46,47],[53,40],[53,47],[52,57],[57,59],[61,62],[65.5,65.5]];
+for(let i=0;i<ROAD_WAYPOINTS.length-1;i++){
+const[ax,ay]=ROAD_WAYPOINTS[i];const[bx,by]=ROAD_WAYPOINTS[i+1];
+const steps=Math.ceil(Math.hypot(bx-ax,by-ay)*6);
+for(let s=0;s<=steps;s++){const t=s/steps;const px=lerp(ax,bx,t);const py=lerp(ay,by,t);
+for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){
+const tx=Math.floor(px+ox);const ty=Math.floor(py+oy);
+if(tx<0||ty<0||tx>=n||ty>=n)continue;
+if(Math.abs(ox)+Math.abs(oy)>1&&rand()<.45)continue;
+road[idx(tx,ty)]=1;
+}}}
+const gateTiles=[];
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+if(!road[idx(x,y)])continue;
+const inWater=tiles[idx(x,y)]===TILE.WATER;
+const dSummit=Math.hypot(x+.5-SUMMIT.x,y+.5-SUMMIT.y);
+tiles[idx(x,y)]=inWater?TILE.BRIDGE:TILE.ROAD;
+if(dSummit>5.6&&dSummit<7.9){tiles[idx(x,y)]=TILE.GATE;gateTiles.push([x,y])}
+}
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const d=Math.hypot(x+.5-SUMMIT.x,y+.5-SUMMIT.y);
+if(d<5.4||d>8.2)continue;if(tiles[idx(x,y)]===TILE.GATE)continue;
+if(d<6.4||d>7.6)tiles[idx(x,y)]=TILE.MOUNTAIN;
+else if(rand()<.75)tiles[idx(x,y)]=TILE.MOUNTAIN;
+}
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const d=Math.hypot(x+.5-SUMMIT.x,y+.5-SUMMIT.y);
+if(d>5.3)continue;tiles[idx(x,y)]=d<1.6?TILE.CRYSTAL:TILE.SNOW;
+}
+for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+const d=Math.hypot(x+.5-VILLAGE.x,y+.5-VILLAGE.y);
+if(d>8)continue;
+if(tiles[idx(x,y)]===TILE.WATER||tiles[idx(x,y)]===TILE.TREE)tiles[idx(x,y)]=TILE.GRASS;
+if(d<4.5)tiles[idx(x,y)]=TILE.VILLAGE;
+}
+[[9,10],[15,10],[9,16],[15,15],[12,8]].forEach(([hx,hy])=>tiles[idx(hx,hy)]=TILE.HOUSE);
+return{seed,tiles,height,gateTiles};
+}
+function tileAt(world,x,y){const tx=Math.floor(x),ty=Math.floor(y);if(tx<0||ty<0||tx>=MAP_SIZE||ty>=MAP_SIZE)return TILE.MOUNTAIN;return world.tiles[ty*MAP_SIZE+tx]}
+function isWalkable(tile,gateOpen){if(tile===TILE.GATE)return gateOpen;return!BLOCKED.has(tile)}
+function walkableAt(world,x,y,gateOpen){return isWalkable(tileAt(world,x,y),gateOpen)}
+function canStand(world,x,y,gateOpen,r=.3){return[[x-r,y],[x+r,y],[x,y-r],[x,y+r]].every(([px,py])=>walkableAt(world,px,py,gateOpen))}
+function findSpawnInZone(world,zoneId,salt,gateOpen,avoid=[],minDist=6){
+const zone=ZONE_BY_ID[zoneId];const rand=mulberry32(zoneId.length*7919+salt*104729+world.seed);
+for(let i=0;i<200;i++){const a=rand()*Math.PI*2;const d=Math.sqrt(rand())*(zone.r-1.5);
+const x=zone.cx+.5+Math.cos(a)*d;const y=zone.cy+.5+Math.sin(a)*d;
+if(!canStand(world,x,y,gateOpen))continue;
+if(avoid.some(p=>Math.hypot(p.x-x,p.y-y)<minDist))continue;
+return{x,y};}
+return{x:zone.cx+.5,y:zone.cy+.5};
+}
+
+// === RENDERING ===
+function project(x,y,z=0){return{sx:(x-y)*(TILE_W/2),sy:(x+y)*(TILE_H/2)-z*HEIGHT_SCALE}}
+function tileTopColor(world,tx,ty,tile,time){
+const style=TILE_STYLE[tile]||TILE_STYLE[TILE.GRASS];
+if(tile===TILE.WATER){const w=Math.sin(time*.0016+tx*.6+ty*.4)*.5+.5;const l=26+Math.round(w*10);return`hsl(202 55% ${l}%)`}
+if(tile===TILE.LAVA){const p=Math.sin(time*.004+(tx+ty)*.8)*.5+.5;const l=34+Math.round(p*16);return`hsl(12 85% ${l}%)`}
+const r=hash2(tx,ty);if(r>.82&&style.alt)return style.alt;return style.top;
+}
+
+// === GAME STATE ===
+let world,canvas,ctx,seed;
+let players=[],enemies=[],objects=[],quests=[],chatMsgs=[];
+let localPlayer,localIdx=0;
+let gateOpen=false,gameStarted=false,gameEnded=false;
+let cam={x:0,y:0},pointer={sx:0,sy:0};
+let keys=new Set(),lastTime=0,nextEnemyId=1,nextObjectId=1;
+let selectedClass="guardian";
+
+// === INIT ===
+function initClassSelect(){
+const el=document.getElementById("classSelect");
+CLASS_LIST.forEach(c=>{
+const d=document.createElement("div");d.className="class-card"+(c.key===selectedClass?" selected":"");
+d.style.borderColor=c.color;
+d.innerHTML=`<div style="width:50px;height:50px;border-radius:50%;background:${c.color};margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:1.5em">⚔️</div>
+<h3 style="color:${c.color}">${c.name}</h3><div class="role">${c.role}</div>
+<div class="stats">❤️ ${c.maxHp} | 💧 ${c.maxMp}<br>⚔️ ${c.damage} | 🏃 ${c.speed}<br>🎯 ${c.range}</div>
+<div style="margin-top:8px;font-size:0.75em;color:#ffd700">${c.ability.name}</div>
+<div style="font-size:0.7em;color:#888;margin-top:4px">${c.blurb}</div>`;
+d.onclick=()=>{selectedClass=c.key;document.querySelectorAll(".class-card").forEach(x=>x.classList.remove("selected"));d.classList.add("selected")};
+el.appendChild(d);
+});
+}
+
+function startGame(){
+document.getElementById("menu").style.display="none";
+document.getElementById("game").style.display="block";
+canvas=document.getElementById("canvas");ctx=canvas.getContext("2d");
+seed=Math.floor(Math.random()*1000000)+1;
+world=buildWorld(seed);
+resizeCanvas();
+// Create local player
+const spawn=findSpawnInZone(world,"villa",Date.now(),false);
+const cls=HERO_CLASSES[selectedClass];
+localPlayer={id:1,name:"Héroe",classKey:selectedClass,x:spawn.x,y:spawn.y,level:1,xp:0,
+hp:cls.maxHp,maxHp:cls.maxHp,mp:cls.maxMp,maxMp:cls.maxMp,damage:cls.damage,
+kills:0,downed:false,zone:"villa",online:true,
+lastMoveMs:Date.now(),lastAttackMs:0,lastAbilityMs:0,lastHitMs:0,visited:["villa"],
+isBot:false,botTarget:null,botAbilityTarget:null};
+players=[localPlayer];
+// Create 3 AI bot allies
+const botClasses=["maga","cleriga","sombra"];
+const botNames=["Lira","Theron","Nyx"];
+botClasses.forEach((ck,i)=>{
+const sp=findSpawnInZone(world,"villa",Date.now()+i+1,false,players,2);
+const bc=HERO_CLASSES[ck];
+players.push({id:i+2,name:botNames[i],classKey:ck,x:sp.x,y:sp.y,level:1,xp:0,
+hp:bc.maxHp,maxHp:bc.maxHp,mp:bc.maxMp,maxMp:bc.maxMp,damage:bc.damage,
+kills:0,downed:false,zone:"villa",online:true,
+lastMoveMs:Date.now(),lastAttackMs:0,lastAbilityMs:0,lastHitMs:0,visited:["villa"],
+isBot:true,botTarget:null,botWanderAngle:Math.random()*Math.PI*2,botWanderUntil:0});
+});
+// Init quests
+quests=CAMPAIGN.map((q,i)=>({...q,progress:0,status:i===0?"active":"locked"}));
+// Init objects (runestones)
+const runestoneSpots=[];
+for(let i=0;i<4;i++)runestoneSpots.push(findSpawnInZone(world,"bosque",31+i*7,false,runestoneSpots,7));
+runestoneSpots.forEach(s=>objects.push({id:nextObjectId++,kind:"runa",x:s.x,y:s.y,collected:false,label:"Runa"}));
+// Campfires
+["pradera","rio","ruinas","senda"].forEach((z,i)=>{
+const s=findSpawnInZone(world,z,55+i*3,false);
+objects.push({id:nextObjectId++,kind:"hoguera",x:s.x,y:s.y,collected:false,label:"Hoguera"});
+});
+// Chests
+["pradera","cienaga","senda"].forEach((z,i)=>{
+const s=findSpawnInZone(world,z,91+i*13,false);
+objects.push({id:nextObjectId++,kind:"cofre",x:s.x,y:s.y,collected:false,label:"Cofre"});
+});
+addChat("system","La expedición parte desde la Aldea de Bruma. El mal late en la Última Montaña.");
+gameStarted=true;
+lastTime=performance.now();
+requestAnimationFrame(gameLoop);
+}
+
+function resizeCanvas(){
+const dpr=Math.min(2,window.devicePixelRatio||1);
+canvas.width=Math.floor(window.innerWidth*dpr);canvas.height=Math.floor(window.innerHeight*dpr);
+ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize",()=>{if(canvas)resizeCanvas()});
+
+// === INPUT ===
+document.addEventListener("keydown",e=>{
+const t=e.target;if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"))return;
+const k=e.key.toLowerCase();
+if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)){keys.add(k);e.preventDefault()}
+if(k===" "||k==="j"){e.preventDefault();attackNearest()}
+if(k==="q"||k==="k"){e.preventDefault();castAbility()}
+if(k==="e"||k==="f"){e.preventDefault();interactNearby()}
+if(k==="r"){e.preventDefault();tryRevive()}
+});
+document.addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
+document.addEventListener("blur",()=>keys.clear());
+
+function screenToWorld(sx,sy){
+const rect=canvas.getBoundingClientRect();
+const cx=rect.width/2,cy=rect.height/2;
+const dx=sx-cx+(rect.width/2),dy=sy-cy+(rect.height/2);
+const relX=dx-cam.sx,relY=dy-cam.sy;
+const a=relX/(TILE_W/2);const b=relY/(TILE_H/2);
+return{x:(b+a)/2,y:(b-a)/2};
+}
+
+canvas&&canvas.addEventListener("pointerdown",e=>{
+const rect=canvas.getBoundingClientRect();
+pointer.sx=e.clientX-rect.left;pointer.sy=e.clientY-rect.top;
+const world=screenToWorld(pointer.sx,pointer.sy);
+// Check enemy click
+let bestEnemy=null,bestD=1.6;
+for(const en of enemies){const d=Math.hypot(en.x-world.x,en.y-world.y);if(d<bestD){bestD=d;bestEnemy=en}}
+if(bestEnemy){attackEnemy(bestEnemy.id);return}
+// Check object click
+let bestObj=null,bestOd=1.8;
+for(const o of objects){if(o.collected)continue;const d=Math.hypot(o.x-world.x,o.y-world.y);if(d<bestOd){bestOd=d;bestObj=o}}
+if(bestObj){interactObject(bestObj.id);return}
+// Move
+movePlayer(world.x,world.y);
+});
+
+function movePlayer(tx,ty){
+if(localPlayer.downed)return;
+const now=Date.now();
+const stats=statsFor(localPlayer.classKey,localPlayer.level);
+const elapsed=Math.min(1.2,Math.max(.05,(now-localPlayer.lastMoveMs)/1000));
+const maxDist=Math.max(2,stats.speed*elapsed*3);
+const dx=tx-localPlayer.x,dy=ty-localPlayer.y;
+const dist=Math.hypot(dx,dy);
+if(dist>maxDist||dist<.05)return;
+if(!canStand(world,tx,ty,gateOpen))return;
+if(dist>.05&&!canStand(world,localPlayer.x+dx/2,localPlayer.y+dy/2,gateOpen))return;
+localPlayer.x=tx;localPlayer.y=ty;localPlayer.lastMoveMs=now;
+localPlayer.zone=zoneAt(tx,ty);
+}
+
+function attackNearest(){
+if(localPlayer.downed)return;
+let best=null,bestD=Infinity;
+for(const e of enemies){if(e.dead)continue;const d=Math.hypot(e.x-localPlayer.x,e.y-localPlayer.y);if(d<bestD){bestD=d;best=e}}
+if(best&&bestD<HERO_CLASSES[localPlayer.classKey].range+1)attackEnemy(best.id);
+}
+
+function attackEnemy(enemyId){
+const p=localPlayer;if(p.downed)return;
+const now=Date.now();const cls=HERO_CLASSES[p.classKey];
+if(now-p.lastAttackMs<cls.attackCooldownMs*.8)return;
+const enemy=enemies.find(e=>e.id===enemyId&&!e.dead);
+if(!enemy)return;
+const d=Math.hypot(enemy.x-p.x,enemy.y-p.y);
+if(d>cls.range+.8)return;
+p.lastAttackMs=now;
+const stats=statsFor(p.classKey,p.level);
+const crit=Math.random()<.12;
+const dmg=stats.damage*(0.9+Math.random()*.25)*(crit?1.9:1);
+hitEnemy(enemy,dmg);
+}
+
+function castAbility(){
+const p=localPlayer;if(p.downed)return;
+const now=Date.now();const cls=HERO_CLASSES[p.classKey];
+if(now-p.lastAbilityMs<cls.ability.cooldownMs)return;
+if(p.mp<cls.ability.cost)return;
+const worldPos=screenToWorld(pointer.sx||window.innerWidth/2,pointer.sy||window.innerHeight/2);
+p.mp-=cls.ability.cost;p.lastAbilityMs=now;
+if(p.classKey==="cleriga"){
+players.forEach(pl=>{if(!pl.online)return;if(Math.hypot(pl.x-p.x,pl.y-p.y)>cls.ability.radius)return;
+if(pl.downed){pl.downed=false;pl.hp=pl.maxHp*.45;addChat("system",`${pl.name} se levanta.`)}
+else{pl.hp=Math.min(pl.maxHp,pl.hp+cls.ability.power)}});
+addChat("player","Plegaria de Luz");
+}else if(p.classKey==="maga"){
+if(Math.hypot(worldPos.x-p.x,worldPos.y-p.y)>cls.ability.range){p.mp+=cls.ability.cost;p.lastAbilityMs=0;return}
+let hits=0;enemies.forEach(e=>{if(e.dead)return;if(Math.hypot(e.x-worldPos.x,e.y-worldPos.y)>cls.ability.radius)return;hitEnemy(e,cls.ability.power);hits++});
+addChat("player",`Meteorito: ${hits} enemigos`);
+}else if(p.classKey==="guardian"){
+let hits=0;enemies.forEach(e=>{if(e.dead)return;if(Math.hypot(e.x-p.x,e.y-p.y)>cls.ability.radius)return;hitEnemy(e,cls.ability.power);hits++});
+addChat("player",`Torbellino: ${hits} enemigos`);
+}else{
+const dx=worldPos.x-p.x,dy=worldPos.y-p.y;const dist=Math.hypot(dx,dy)||1;
+const capped=Math.min(dist,cls.ability.range);
+const stepX=(dx/dist)*capped,stepY=(dy/dist)*capped;
+let fx=p.x,fy=p.y;
+for(let i=1;i<=10;i++){const nx=p.x+(stepX*i)/10,ny=p.y+(stepY*i)/10;
+if(!canStand(world,nx,ny,gateOpen))break;fx=nx;fy=ny}
+p.x=fx;p.y=fy;p.lastMoveMs=now;
+let hits=0;enemies.forEach(e=>{if(e.dead)return;
+const px=e.x-fx,py=e.y-fy;const len=Math.hypot(stepX,stepY);
+const t=Math.max(0,Math.min(1,(px*(fx-p.x)+py*(fy-p.y))/((fx-p.x)**2+(fy-p.y)**2+.001)));
+const projX=p.x+(fx-p.x)*t,projY=p.y+(fy-p.y)*t;
+if(Math.hypot(e.x-projX,e.y-projY)<cls.ability.radius){hitEnemy(e,cls.ability.power);hits++}});
+addChat("player",`Paso Umbrío: ${hits} enemigos`);
+}
+}
+
+function interactNearby(){
+const p=localPlayer;if(p.downed)return;
+// Revive ally
+const ally=players.find(pl=>pl.id!==p.id&&pl.downed&&pl.online&&Math.hypot(pl.x-p.x,pl.y-p.y)<2.2);
+if(ally){ally.downed=false;ally.hp=ally.maxHp*.5;ally.lastHitMs=Date.now();addChat("system",`${p.name} levanta a ${ally.name}.`);return}
+// Interact with object
+for(const obj of objects){
+if(obj.collected)continue;if(Math.hypot(obj.x-p.x,obj.y-p.y)>2.4)continue;
+interactObject(obj.id);return;
+}
+}
+
+function interactObject(objectId){
+const p=localPlayer;if(p.downed)return;
+const obj=objects.find(o=>o.id===objectId&&!o.collected);
+if(!obj||Math.hypot(obj.x-p.x,obj.y-p.y)>2.4)return;
+obj.collected=true;
+if(obj.kind==="runa"){
+const aq=quests.find(q=>q.status==="active"&&q.kind==="collect"&&q.target==="runa");
+if(aq){aq.progress=Math.min(aq.required,aq.progress+1)}
+p.xp+=45;addChat("player",`${p.name} recupera una runa. (+45 XP)`);
+}else if(obj.kind==="cofre"){
+p.xp+=90;p.mp=Math.min(p.maxMp,p.mp+40);
+addChat("player",`${p.name} abre un cofre. (+90 XP, +40 energía)`);
+}else if(obj.kind==="hoguera"){
+players.forEach(pl=>{if(!pl.online)return;if(Math.hypot(pl.x-p.x,pl.y-p.y)>6)return;
+pl.hp=Math.min(pl.maxHp,pl.hp+pl.maxHp*.5);pl.mp=Math.min(pl.maxMp,pl.pl?.mp||pl.mp+pl.maxMp*.6)});
+addChat("player","Hoguera: el grupo recupera fuerzas");
+}
+levelUpCheck(p);
+}
+
+function tryRevive(){
+if(!localPlayer.downed)return;
+const now=Date.now();
+if(now-localPlayer.lastHitMs<12000)return;
+const spawn={x:ZONE_BY_ID.villa.cx+.5,y:ZONE_BY_ID.villa.cy+.5};
+localPlayer.x=spawn.x;localPlayer.y=spawn.y;
+localPlayer.hp=localPlayer.maxHp*.5;localPlayer.mp=localPlayer.maxMp*.5;
+localPlayer.downed=false;localPlayer.lastMoveMs=now;
+addChat("system","Vuelves al último santuario.");
+}
+
+function hitEnemy(enemy,dmg){
+enemy.hp-=dmg;
+if(enemy.hp<=0){
+enemy.hp=0;enemy.dead=true;enemy.respawnAt=Date.now()+40000;
+const kind=ALL_ENEMY_KINDS[enemy.kind]||BESTIARY[enemy.kind];
+localPlayer.xp+=kind.xp;localPlayer.kills++;
+// Quest progress
+const aq=quests.find(q=>q.status==="active");
+if(aq){
+if(aq.kind==="kill"&&aq.target===enemy.zone){aq.progress=Math.min(aq.required,aq.progress+1)}
+if(aq.kind==="boss"&&aq.target===enemy.kind){aq.progress=aq.required}
+}
+levelUpCheck(localPlayer);
+if(kind.shape==="boss")addChat("system",`${kind.name} ha sido derrotado.`);
+}
+}
+const ALL_ENEMY_KINDS=BESTIARY;
+
+function levelUpCheck(p){
+const nl=levelFromXp(p.xp);
+if(nl>p.level){
+p.level=nl;const s=statsFor(p.classKey,nl);
+p.maxHp=s.maxHp;p.maxMp=s.maxMp;p.hp=s.maxHp;p.mp=s.maxMp;
+addChat("system",`${p.name} alcanza el nivel ${nl}.`);
+}
+checkQuests();
+}
+
+function checkQuests(){
+let changed=false;
+quests.forEach(q=>{
+if(q.status==="active"&&q.progress>=q.required){
+q.status="complete";changed=true;
+const def=CAMPAIGN.find(c=>c.code===q.code);
+addChat("system",`¡Misión completada: ${q.title}! (+${def.xp} XP)`);
+players.forEach(p=>{if(!p.online)return;p.xp+=def.xp;levelUpCheck(p)});
+if(def.opensGate&&!gateOpen){gateOpen=true;addChat("system","¡La puerta de la Montaña se abre!")}
+if(def.finale){gameEnded=true;addChat("system","¡El Corazón de la Sombra se ha roto! ¡VICTORIA!")}
+// Activate next quest
+const idx=quests.findIndex(x=>x.code===q.code);
+const next=quests[idx+1];
+if(next&&next.status==="locked"){next.status="active";addChat("system",`Nueva misión: ${next.title}`)}
+}
+});
+}
+
+function addChat(kind,body){
+chatMsgs.push({kind,body,time:Date.now()});
+if(chatMsgs.length>40)chatMsgs.shift();
+updateChatUI();
+}
+
+// === ENEMY SPAWNING ===
+function spawnEnemies(now){
+ZONES.forEach(zone=>{
+if(zone.maxEnemies===0)return;
+if(zone.id==="montana"&&!gateOpen)return;
+const alive=players.filter(p=>!p.downed&&p.online);
+if(!alive.some(p=>Math.hypot(p.x-zone.cx,p.y-zone.cy)<zone.r+8))return;
+const count=enemies.filter(e=>e.zone===zone.id&&!e.dead&&!e.isBoss).length;
+if(count>=zone.maxEnemies)return;
+const spot=findSpawnInZone(world,zone.id,Math.floor(now/1000)+zone.id.length,gateOpen,alive,10);
+const kindKey=zone.kinds[Math.floor(Math.random()*zone.kinds.length)];
+const kind=BESTIARY[kindKey];
+enemies.push({id:nextEnemyId++,kind:kindKey,zone:zone.id,x:spot.x,y:spot.y,
+hp:kind.hp,maxHp:kind.hp,level:zone.level,isBoss:false,dead:false,
+wanderX:spot.x,wanderY:spot.y,wanderUntil:0,lastAttackAt:0,respawnAt:0});
+});
+// Bosses
+ZONES.forEach(zone=>{
+if(!zone.boss)return;
+const aq=quests.find(q=>q.status==="active");
+if(!aq||(aq.kind!=="boss"&&aq.target!==zone.boss))return;
+// Check if this boss's quest is active
+if(aq.target!==zone.boss)return;
+if(zone.id==="montana"&&!gateOpen)return;
+const alive=players.filter(p=>!p.downed&&p.online);
+if(!alive.some(p=>Math.hypot(p.x-zone.cx,p.y-zone.cy)<zone.r+6))return;
+if(enemies.some(e=>e.kind===zone.boss&&!e.dead))return;
+const kind=BESTIARY[zone.boss];
+const spot=zone.boss==="corazon"?{x:zone.cx+3.4,y:zone.cy+.5}:findSpawnInZone(world,zone.id,777,gateOpen,alive,8);
+enemies.push({id:nextEnemyId++,kind:zone.boss,zone:zone.id,x:spot.x,y:spot.y,
+hp:kind.hp,maxHp:kind.hp,level:zone.level+2,isBoss:true,dead:false,
+wanderX:spot.x,wanderY:spot.y,wanderUntil:0,lastAttackAt:0,respawnAt:0});
+addChat("system",zone.boss==="corazon"?"El Corazón de la Sombra despierta en la cima.":`${kind.name} despierta.`);
+});
+}
+
+// === AI BOT LOGIC ===
+function updateBots(now,dt){
+players.forEach(p=>{
+if(!p.isBot||!p.online||p.downed)return;
+const cls=HERO_CLASSES[p.classKey];
+const stats=statsFor(p.classKey,p.level);
+// Regen
+if(now-p.lastHitMs>6000){p.hp=Math.min(p.maxHp,p.hp+5*dt);p.mp=Math.min(p.maxMp,p.mp+6*dt)}
+else if(p.mp<p.maxMp)p.mp=Math.min(p.maxMp,p.mp+3.5*dt);
+// Cleriga: heal allies
+if(p.classKey==="cleriga"){
+const hurtAlly=players.find(a=>a.id!==p.id&&a.online&&!a.downed&&a.hp<a.maxHp*.6&&Math.hypot(a.x-p.x,a.y-p.y)<cls.ability.radius);
+if(hurtAlly&&p.mp>=cls.ability.cost&&now-p.lastAbilityMs>cls.ability.cooldownMs){
+p.mp-=cls.ability.cost;p.lastAbilityMs=now;
+players.forEach(a=>{if(a.id===p.id||!a.online)return;if(Math.hypot(a.x-p.x,a.y-p.y)>cls.ability.radius)return;
+if(a.downed){a.downed=false;a.hp=a.maxHp*.45}else{a.hp=Math.min(a.maxHp,a.hp+cls.ability.power)}});
+addChat("system",`${p.name} lanza Plegaria de Luz.`);
+}}
+// Find nearest enemy
+let target=null,bestD=Infinity;
+for(const e of enemies){if(e.dead)continue;const d=Math.hypot(e.x-p.x,e.y-p.y);if(d<bestD){bestD=d;target=e}}
+// Attack if in range
+if(target&&bestD<cls.range+.8&&now-p.lastAttackMs>cls.attackCooldownMs){
+p.lastAttackMs=now;const dmg=stats.damage*(0.9+Math.random()*.25);hitEnemy(target,dmg);return}
+// Use ability on boss clusters
+if(target&&bestD<cls.ability.range&&p.mp>=cls.ability.cost&&now-p.lastAbilityMs>cls.ability.cooldownMs&&cls.classKey!=="cleriga"){
+p.mp-=cls.ability.cost;p.lastAbilityMs=now;
+if(p.classKey==="maga"){
+let hits=0;enemies.forEach(e=>{if(e.dead)return;if(Math.hypot(e.x-target.x,e.y-target.y)>cls.ability.radius)return;hitEnemy(e,cls.ability.power);hits++});
+addChat("system",`${p.name} lanza Meteorito.`);
+}else if(p.classKey==="guardian"){
+let hits=0;enemies.forEach(e=>{if(e.dead)return;if(Math.hypot(e.x-p.x,e.y-p.y)>cls.ability.radius)return;hitEnemy(e,cls.ability.power);hits++});
+addChat("system",`${p.name} usa Torbellino.`);
+}else if(p.classKey==="sombra"){
+const dx=target.x-p.x,dy=target.y-p.y;const dist=Math.hypot(dx,dy)||1;
+const capped=Math.min(dist,cls.ability.range);const sx=(dx/dist)*capped,sy=(dy/dist)*capped;
+let fx=p.x,fy=p.y;
+for(let i=1;i<=10;i++){const nx=p.x+(sx*i)/10,ny=p.y+(sy*i)/10;
+if(!canStand(world,nx,ny,gateOpen))break;fx=nx;fy=ny}
+p.x=fx;p.y=fy;p.lastMoveMs=now;
+let hits=0;enemies.forEach(e=>{if(e.dead)return;if(Math.hypot(e.x-fx,e.y-fy)<cls.ability.radius){hitEnemy(e,cls.ability.power);hits++}});
+addChat("system",`${p.name} usa Paso Umbrío.`);
+}
+}
+// Move toward target or wander
+if(target&&bestD>cls.range){
+const speed=stats.speed*dt;
+const dx=(target.x-p.x)/bestD,dy=(target.y-p.y)/bestD;
+const nx=p.x+dx*speed,ny=p.y+dy*speed;
+if(canStand(world,nx,ny,gateOpen)){p.x=nx;p.y=ny;p.lastMoveMs=now}
+else if(canStand(world,p.x+dx*speed,p.y,gateOpen)){p.x+=dx*speed;p.lastMoveMs=now}
+else if(canStand(world,p.x,p.y+dy*speed,gateOpen)){p.y+=dy*speed;p.lastMoveMs=now}
+}else if(now>p.botWanderUntil){
+p.botWanderAngle=Math.random()*Math.PI*2;
+p.botWanderUntil=now+2000+Math.random()*3000;
+// Stay near local player
+const toLocal=Math.hypot(localPlayer.x-p.x,localPlayer.y-p.y);
+if(toLocal>8){p.botWanderAngle=Math.atan2(localPlayer.y-p.y,localPlayer.x-p.x)}
+}else{
+const speed=stats.speed*.4*dt;
+const nx=p.x+Math.cos(p.botWanderAngle)*speed;
+const ny=p.y+Math.sin(p.botWanderAngle)*speed;
+if(canStand(world,nx,ny,gateOpen)){p.x=nx;p.y=ny}
+}
+p.zone=zoneAt(p.x,p.y);
+});
+}
+
+// === ENEMY AI ===
+function updateEnemies(now,dt){
+const alive=players.filter(p=>!p.downed&&p.online);
+enemies.forEach(e=>{
+if(e.dead){
+if(!e.isBoss&&now>e.respawnAt&&alive.length){
+const spot=findSpawnInZone(world,e.zone,Math.floor(now/1000)+e.id,gateOpen,alive,9);
+const kind=BESTIARY[e.kind];e.x=spot.x;e.y=spot.y;e.hp=kind.hp;e.dead=false;
+}return;
+}
+if(dt<.01||!alive.some(p=>Math.hypot(p.x-e.x,p.y-e.y)<26))return;
+const kind=BESTIARY[e.kind];
+let target=null,best=Infinity;
+alive.forEach(p=>{const d=Math.hypot(p.x-e.x,p.y-e.y);if(d<best){best=d;target=p}});
+if(target&&best<kind.aggro){
+if(best>kind.attackRange*.85){
+const speed=kind.speed*dt;const dx=(target.x-e.x)/best,dy=(target.y-e.y)/best;
+const nx=e.x+dx*speed,ny=e.y+dy*speed;
+if(canStand(world,nx,ny,gateOpen,.25)){e.x=nx;e.y=ny}
+else if(canStand(world,e.x+dx*speed,e.y,gateOpen,.25))e.x+=dx*speed;
+else if(canStand(world,e.x,e.y+dy*speed,gateOpen,.25))e.y+=dy*speed;
+}else if(now-e.lastAttackAt>kind.attackMs){
+e.lastAttackAt=now;
+const dmg=kind.damage*(0.85+Math.random()*0.3)*(1+(e.level-1)*0.05);
+if(e.isBoss&&kind.attackRange>3){
+alive.forEach(p=>{if(Math.hypot(p.x-e.x,p.y-e.y)>kind.attackRange)return;
+p.hp=Math.max(0,p.hp-dmg*.6);p.lastHitMs=now;
+if(p.hp<=0&&!p.downed){p.downed=true;p.hp=0;addChat("system",`${p.name} ha caído.`)}
+});
+}else if(target){
+target.hp=Math.max(0,target.hp-dmg);target.lastHitMs=now;
+if(target.hp<=0&&!target.downed){target.downed=true;target.hp=0;addChat("system",`${target.name} ha caído.`)}
+}
+}
+}else if(now>e.wanderUntil){
+e.wanderX=e.x+(Math.random()-.5)*4;e.wanderY=e.y+(Math.random()-.5)*4;
+e.wanderUntil=now+2500+Math.random()*3500;
+}else{
+const wx=e.wanderX-e.x,wy=e.wanderY-e.y,wd=Math.hypot(wx,wy);
+if(wd>.4){const speed=kind.speed*.4*dt;
+const nx=e.x+(wx/wd)*speed,ny=e.y+(wy/wd)*speed;
+if(canStand(world,nx,ny,gateOpen,.25)){e.x=nx;e.y=ny}
+else{e.wanderUntil=now}}
+}
+});
+// Wipe check
+if(alive.length>0&&alive.every(p=>p.downed)){
+alive.forEach(p=>{p.x=localPlayer.x+(Math.random()-.5)*3;p.y=localPlayer.y+(Math.random()-.5)*3;
+if(!canStand(world,p.x,p.y,gateOpen)){p.x=localPlayer.x;p.y=localPlayer.y}
+p.hp=p.maxHp*.6;p.mp=p.maxMp*.5;p.downed=false;p.lastMoveMs=now});
+enemies.filter(e=>e.isBoss&&!e.dead).forEach(e=>{e.hp=BESTIARY[e.kind].hp;
+const spot=findSpawnInZone(world,e.zone,4242,gateOpen,alive,6);e.x=spot.x;e.y=spot.y});
+addChat("system","La expedición ha caído... Despiertan en el santuario.");
+}
+}
+
+// === GAME LOOP ===
+function gameLoop(now){
+if(!gameStarted)return;
+const dt=Math.min(.15,(now-lastTime)/1000);lastTime=now;
+// Player movement
+const moveSpeed=statsFor(localPlayer.classKey,localPlayer.level).speed*dt;
+let mx=0,my=0;
+if(keys.has("w")||keys.has("arrowup"))my-=1;
+if(keys.has("s")||keys.has("arrowdown"))my+=1;
+if(keys.has("a")||keys.has("arrowleft"))mx-=1;
+if(keys.has("d")||keys.has("arrowright"))mx+=1;
+if((mx||my)&&!localPlayer.downed){
+const len=Math.hypot(mx,my);mx/=len;my/=len;
+const nx=localPlayer.x+mx*moveSpeed,ny=localPlayer.y+my*moveSpeed;
+if(canStand(world,nx,ny,gateOpen)){localPlayer.x=nx;localPlayer.y=ny;localPlayer.lastMoveMs=now}
+else if(canStand(world,nx,localPlayer.y,gateOpen)){localPlayer.x=nx;localPlayer.lastMoveMs=now}
+else if(canStand(world,localPlayer.x,ny,gateOpen)){localPlayer.y=ny;localPlayer.lastMoveMs=now}
+localPlayer.zone=zoneAt(localPlayer.x,localPlayer.y);
+}
+// Regen
+if(now-localPlayer.lastHitMs>6000){localPlayer.hp=Math.min(localPlayer.maxHp,localPlayer.hp+5*dt);localPlayer.mp=Math.min(localPlayer.maxMp,localPlayer.mp+6*dt)}
+else if(localPlayer.mp<localPlayer.maxMp)localPlayer.mp=Math.min(localPlayer.maxMp,localPlayer.mp+3.5*dt);
+// Update bots
+updateBots(now,dt);
+// Update enemies
+updateEnemies(now,dt);
+spawnEnemies(now);
+// Camera
+cam=project(localPlayer.x,localPlayer.y);
+// Render
+render(now);
+// Update UI
+updateHUD(now);
+requestAnimationFrame(gameLoop);
+}
+
+function render(time){
+const w=window.innerWidth,h=window.innerHeight;
+ctx.fillStyle="#0a0a1a";ctx.fillRect(0,0,w,h);
+ctx.save();
+const cx=w/2,cy=h/2;
+const offsetX=cx-cam.sx,offsetY=cy-cam.sy;
+ctx.translate(offsetX,offsetY);
+// Determine visible range
+const startTileX=Math.max(0,Math.floor((-(cx)-cam.sx)/(TILE_W/2))-2);
+const endTileX=Math.min(MAP_SIZE,Math.ceil((w-cx-cam.sx)/(TILE_W/2))+4);
+const startTileY=Math.max(0,Math.floor((-(cy)-cam.sy)/(TILE_H/2))-2);
+const endTileY=Math.min(MAP_SIZE,Math.ceil((h-cy-cam.sy)/(TILE_H/2))+6);
+// Sort renderables by depth
+const renderables=[];
+for(let ty=startTileY;ty<endTileY;ty++){
+for(let tx=startTileX;tx<endTileX;tx++){
+const tile=world.tiles[ty*MAP_SIZE+tx];
+const ht=world.height[ty*MAP_SIZE+tx];
+const p=project(tx+.5,ty+.5,ht);
+renderables.push({type:"tile",x:p.sx,y:p.sy,tile,tx,ty,ht,depth:tx+ty});
+}
+}
+// Add entities
+players.forEach(p=>{if(!p.online)return;
+const ht=world.height[Math.floor(p.y)*MAP_SIZE+Math.floor(p.x)]||0;
+const pr=project(p.x,p.y,ht);
+renderables.push({type:"player",entity:p,x:pr.sx,y:pr.sy,depth:p.x+p.y});
+});
+enemies.forEach(e=>{if(e.dead)return;
+const ht=world.height[Math.floor(e.y)*MAP_SIZE+Math.floor(e.x)]||0;
+const pr=project(e.x,e.y,ht);
+renderables.push({type:"enemy",entity:e,x:pr.sx,y:pr.sy,depth:e.x+e.y});
+});
+objects.forEach(o=>{if(o.collected)return;
+const pr=project(o.x,o.y);
+renderables.push({type:"object",entity:o,x:pr.sx,y:pr.sy,depth:o.x+o.y});
+});
+// Sort by depth
+renderables.sort((a,b)=>a.depth-b.depth);
+// Render
+renderables.forEach(r=>{
+if(r.type==="tile")drawTile(r.tile,r.tx,r.ty,r.ht,time);
+else if(r.type==="player")drawPlayer(r.entity,time);
+else if(r.type==="enemy")drawEnemy(r.entity,time);
+else if(r.type==="object")drawObject(r.entity,time);
+});
+ctx.restore();
+}
+
+function drawTile(tile,tx,ty,ht,time){
+const style=TILE_STYLE[tile]||TILE_STYLE[TILE.GRASS];
+const col=tileTopColor(world,tx,ty,tile,time);
+const sideCol=style.side;
+const w=TILE_W/2,h=TILE_H/2;
+const p=project(tx+.5,ty+.5,ht);
+const sx=p.sx,sy=p.sy;
+// Top face
+ctx.fillStyle=col;
+ctx.beginPath();ctx.moveTo(sx,sy-h);ctx.lineTo(sx+w,sy);ctx.lineTo(sx,sy+h);ctx.lineTo(sx-w,sy);ctx.closePath();ctx.fill();
+// Right face
+ctx.fillStyle=sideCol;
+ctx.beginPath();ctx.moveTo(sx,sy+h);ctx.lineTo(sx+w,sy);ctx.lineTo(sx+w,sy+4);ctx.lineTo(sx,sy+h+4);ctx.closePath();ctx.fill();
+// Left face
+ctx.fillStyle=sideCol;
+ctx.beginPath();ctx.moveTo(sx,sy+h);ctx.lineTo(sx-w,sy);ctx.lineTo(sx-w,sy+4);ctx.lineTo(sx,sy+h+4);ctx.closePath();ctx.fill();
+// Draw prop tiles (trees, rocks, etc.)
+if(PROP_TILES.has(tile)){
+if(tile===TILE.TREE){
+ctx.fillStyle="#2a5a2e";ctx.beginPath();ctx.arc(sx,sy-ht*HEIGHT_SCALE-8,6,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#5c3a1a";ctx.fillRect(sx-1,sy-ht*HEIGHT_SCALE-2,2,6);
+}else if(tile===TILE.HOUSE){
+const bh=10;
+ctx.fillStyle="#6b5040";ctx.fillRect(sx-7,sy-ht*HEIGHT_SCALE-bh,14,bh);
+ctx.fillStyle="#8b4020";ctx.beginPath();ctx.moveTo(sx-9,sy-ht*HEIGHT_SCALE-bh);ctx.lineTo(sx,sy-ht*HEIGHT_SCALE-bh-7);ctx.lineTo(sx+9,sy-ht*HEIGHT_SCALE-bh);ctx.closePath();ctx.fill();
+}else if(tile===TILE.CRYSTAL){
+ctx.fillStyle="#6b4a8a";ctx.beginPath();ctx.moveTo(sx,sy-ht*HEIGHT_SCALE-14);ctx.lineTo(sx+5,sy-ht*HEIGHT_SCALE);ctx.lineTo(sx-5,sy-ht*HEIGHT_SCALE);ctx.closePath();ctx.fill();
+ctx.fillStyle="#9b6aba";ctx.beginPath();ctx.moveTo(sx+2,sy-ht*HEIGHT_SCALE-10);ctx.lineTo(sx+7,sy-ht*HEIGHT_SCALE);ctx.lineTo(sx+2,sy-ht*HEIGHT_SCALE);ctx.closePath();ctx.fill();
+}
+}
+}
+
+function drawPlayer(p,time){
+const ht=world.height[Math.floor(p.y)*MAP_SIZE+Math.floor(p.x)]||0;
+const pr=project(p.x,p.y,ht);
+const sx=pr.sx,sy=pr.sy;
+const cls=HERO_CLASSES[p.classKey];
+const bounce=p.downed?0:Math.sin(time*.006+p.id)*2;
+const baseY=sy-ht*HEIGHT_SCALE+bounce;
+// Shadow
+ctx.fillStyle="rgba(0,0,0,0.3)";
+ctx.beginPath();ctx.ellipse(sx,baseY+2,8,3,0,0,Math.PI*2);ctx.fill();
+// Body
+if(p.downed){
+ctx.globalAlpha=.5;
+ctx.fillStyle="#666";
+ctx.beginPath();ctx.arc(sx,baseY,7,0,Math.PI*2);ctx.fill();
+ctx.globalAlpha=1;
+}else{
+ctx.fillStyle=cls.color;
+ctx.beginPath();ctx.arc(sx,baseY,7,0,Math.PI*2);ctx.fill();
+ctx.fillStyle=cls.accent;
+ctx.beginPath();ctx.arc(sx,baseY-2,4,0,Math.PI*2);ctx.fill();
+}
+// Name
+ctx.fillStyle="#fff";ctx.font="bold 9px sans-serif";ctx.textAlign="center";
+ctx.fillText(p.name,sx,baseY-12);
+// HP bar
+const barW=20,barH=3;
+ctx.fillStyle="#333";ctx.fillRect(sx-barW/2,baseY-16,barW,barH);
+ctx.fillStyle=p.hp>p.maxHp*.3?"#e74c3c":"#c0392b";
+ctx.fillRect(sx-barW/2,baseY-16,barW*(p.hp/p.maxHp),barH);
+// Local player indicator
+if(p.id===localPlayer.id){
+ctx.strokeStyle="#ffd700";ctx.lineWidth=2;
+ctx.beginPath();ctx.arc(sx,baseY+2,12,0,Math.PI*2);ctx.stroke();
+}
+}
+
+function drawEnemy(e,time){
+const ht=world.height[Math.floor(e.y)*MAP_SIZE+Math.floor(e.x)]||0;
+const pr=project(e.x,e.y,ht);
+const sx=pr.sx,sy=pr.sy;
+const kind=BESTIARY[e.kind];
+const baseY=sy-ht*HEIGHT_SCALE;
+const sz=kind.size*18;
+const bounce=Math.sin(time*.004+e.id)*1.5;
+// Shadow
+ctx.fillStyle="rgba(0,0,0,0.3)";
+ctx.beginPath();ctx.ellipse(sx,baseY+2,sz,sz*.4,0,0,Math.PI*2);ctx.fill();
+// Body based on shape
+ctx.fillStyle=kind.color;
+if(kind.shape==="blob"){
+ctx.beginPath();ctx.arc(sx,baseY-bounce,sz*.8,0,Math.PI*2);ctx.fill();
+}else if(kind.shape==="beast"){
+ctx.beginPath();ctx.ellipse(sx,baseY-bounce,sz,sz*.6,0,0,Math.PI*2);ctx.fill();
+}else if(kind.shape==="spider"){
+ctx.beginPath();ctx.arc(sx,baseY-bounce,sz*.7,0,Math.PI*2);ctx.fill();
+for(let i=0;i<4;i++){const a=Math.PI*.25+i*Math.PI*.5;
+ctx.strokeStyle=kind.dark;ctx.lineWidth=1.5;
+ctx.beginPath();ctx.moveTo(sx,baseY-bounce);ctx.lineTo(sx+Math.cos(a)*sz*1.2,baseY+Math.sin(a)*sz*.4-bounce);ctx.stroke()}
+}else if(kind.shape==="spirit"){
+ctx.globalAlpha=.7;ctx.beginPath();ctx.arc(sx,baseY-bounce-3,sz*.8,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+}else if(kind.shape==="bones"){
+ctx.fillStyle=kind.color;ctx.fillRect(sx-2,baseY-sz*.6-bounce,4,sz*1.2);
+ctx.fillRect(sx-sz*.5,baseY-bounce,sz,3);
+}else if(kind.shape==="construct"){
+ctx.fillStyle=kind.dark;ctx.fillRect(sx-sz*.6,baseY-sz*.8-bounce,sz*1.2,sz*1.2);
+ctx.fillStyle=kind.color;ctx.fillRect(sx-sz*.4,baseY-sz*.6-bounce,sz*.8,sz*.8);
+}else if(kind.shape==="fiend"){
+ctx.beginPath();ctx.moveTo(sx,baseY-sz-bounce);ctx.lineTo(sx+sz,baseY+bounce);ctx.lineTo(sx-sz,baseY+bounce);ctx.closePath();ctx.fill();
+}else if(kind.shape==="boss"){
+ctx.beginPath();ctx.arc(sx,baseY-bounce,sz,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle=kind.dark;ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,baseY-bounce,sz+3,0,Math.PI*2);ctx.stroke();
+// Boss glow
+ctx.shadowColor=kind.color;ctx.shadowBlur=15;
+ctx.beginPath();ctx.arc(sx,baseY-bounce,sz-2,0,Math.PI*2);ctx.stroke();
+ctx.shadowBlur=0;
+}
+// HP bar
+if(e.hp<e.maxHp){
+const barW=24,barH=3;
+ctx.fillStyle="#333";ctx.fillRect(sx-barW/2,baseY-sz-10-bounce,barW,barH);
+ctx.fillStyle="#e74c3c";ctx.fillRect(sx-barW/2,baseY-sz-10-bounce,barW*(e.hp/e.maxHp),barH);
+}
+}
+
+function drawObject(o,time){
+const pr=project(o.x,o.y);
+const sx=pr.sx,sy=pr.sy;
+const bounce=Math.sin(time*.003+o.id)*2;
+if(o.kind==="runa"){
+ctx.fillStyle="#4488ff";ctx.shadowColor="#4488ff";ctx.shadowBlur=10;
+ctx.beginPath();ctx.arc(sx,sy+bounce,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+ctx.fillStyle="#88bbff";ctx.font="10px sans-serif";ctx.textAlign="center";ctx.fillText("✦",sx,sy+bounce+3);
+}else if(o.kind==="cofre"){
+ctx.fillStyle="#8B6914";ctx.fillRect(sx-6,sy-5+bounce,12,8);
+ctx.fillStyle="#DAA520";ctx.fillRect(sx-7,sy-6+bounce,14,2);
+}else if(o.kind==="hoguera"){
+const flicker=Math.sin(time*.01+o.id)*2;
+ctx.fillStyle="#ff6600";ctx.shadowColor="#ff4400";ctx.shadowBlur=8;
+ctx.beginPath();ctx.arc(sx,sy-3+flicker,4,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#ffaa00";ctx.beginPath();ctx.arc(sx,sy-5+flicker,2,0,Math.PI*2);ctx.fill();
+ctx.shadowBlur=0;
+ctx.fillStyle="#5a3a1a";ctx.fillRect(sx-2,sy+1,4,3);
+}
+}
+
+// === UI ===
+function updateHUD(now){
+// Zone name
+const zone=ZONE_BY_ID[localPlayer.zone];
+document.getElementById("zoneName").textContent=zone?zone.name:"Tierra salvaje";
+// Player bars
+const bars=document.getElementById("playerBars");
+bars.innerHTML=players.filter(p=>p.online).map(p=>{
+const cls=HERO_CLASSES[p.classKey];
+return`<div style="margin-bottom:4px"><div style="font-size:0.7em;color:${p.id===localPlayer.id?"#ffd700":"#aaa"}">${p.name} (${cls.name}) Lv${p.level}${p.downed?" ⚠️ CAÍDO":""}</div>
+<div class="bar-wrap bar-hp"><div class="bar-fill" style="width:${(p.hp/p.maxHp)*100}%"></div><div class="bar-label">❤️ ${Math.ceil(p.hp)}/${p.maxHp}</div></div>
+<div class="bar-wrap bar-mp"><div class="bar-fill" style="width:${(p.mp/p.maxMp)*100}%"></div><div class="bar-label">💧 ${Math.ceil(p.mp)}/${p.maxMp}</div></div></div>`;
+}).join("");
+// Quests
+const qp=document.getElementById("questPanel");
+qp.innerHTML=`<h3>📜 Misiones</h3>`+quests.map(q=>{
+return`<div class="quest ${q.status}"><div class="quest-title">${q.status==="complete"?"✅":q.status==="active"?"🔶":"🔒"} ${q.title}</div>
+<div class="quest-progress">${q.summary}${q.status==="active"?` (${q.progress}/${q.required})`:q.status==="complete"?" ✅ Completada":""}</div></div>`;
+}).join("");
+document.getElementById("questCount").textContent=`Activa: ${quests.filter(q=>q.status==="active").length} / Completadas: ${quests.filter(q=>q.status==="complete").length}`;
+// Minimap
+drawMinimap();
+}
+
+function drawMinimap(){
+const mc=document.getElementById("minimap");const mctx=mc.getContext("2d");
+const scale=120/MAP_SIZE;
+// Draw terrain
+for(let y=0;y<MAP_SIZE;y+=2){
+for(let x=0;x<MAP_SIZE;x+=2){
+const tile=world.tiles[y*MAP_SIZE+x];
+const style=TILE_STYLE[tile]||TILE_STYLE[TILE.GRASS];
+mctx.fillStyle=style.top;mctx.fillRect(x*scale,y*scale,scale*2,scale*2);
+}}
+// Draw zones
+ZONES.forEach(z=>{
+mctx.strokeStyle=z.tint;mctx.lineWidth=.5;
+mctx.beginPath();mctx.arc(z.cx*scale,z.cy*scale,z.r*scale,0,Math.PI*2);mctx.stroke();
+});
+// Draw enemies
+enemies.forEach(e=>{if(e.dead)return;mctx.fillStyle="#e74c3c";mctx.fillRect(e.x*scale-1,e.y*scale-1,2,2)});
+// Draw players
+players.forEach(p=>{if(!p.online)return;
+mctx.fillStyle=p.id===localPlayer.id?"#ffd700":HERO_CLASSES[p.classKey].color;
+mctx.fillRect(p.x*scale-2,p.y*scale-2,4,4);
+});
+}
+
+function updateChatUI(){
+const el=document.getElementById("chatBox");
+el.innerHTML=chatMsgs.slice(-15).map(m=>`<div class="chat-msg ${m.kind}">${m.body}</div>`).join("");
+el.scrollTop=el.scrollHeight;
+}
+
+// === INIT ===
+initClassSelect();
+</script>
+</body>
+</html>

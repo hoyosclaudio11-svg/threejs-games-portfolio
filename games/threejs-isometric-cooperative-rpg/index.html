@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cooperative Isometric RPG</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0e1a;font-family:'Segoe UI',sans-serif;color:#e0e0e0}
+#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a1a12,#1a2a1a);z-index:100}
+#menu h1{font-size:2.2em;margin-bottom:10px;color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.3)}
+#menu p{margin-bottom:10px;color:#aaa;font-size:1em;max-width:500px;text-align:center}
+.mission-select{display:flex;gap:15px;margin:20px 0;flex-wrap:wrap;justify-content:center}
+.mission-card{width:200px;padding:15px;border-radius:12px;cursor:pointer;border:2px solid #333;transition:all 0.3s;text-align:center;background:rgba(0,0,0,.3)}
+.mission-card:hover{border-color:#4ade80;transform:translateY(-3px)}
+.mission-card h3{color:#4ade80;font-size:1em;margin-bottom:5px}
+.mission-card p{font-size:.8em;color:#aaa}
+#startBtn{padding:15px 40px;font-size:1.2em;background:#4ade80;color:#0a1a12;border:none;border-radius:8px;cursor:pointer;font-weight:bold;display:none}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#hud>div{pointer-events:auto}
+.turn-indicator{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:1.1em;color:#4ade80;text-shadow:0 0 10px rgba(74,222,128,0.5);background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px}
+.unit-list{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:4px}
+.unit-card{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(0,0,0,.6);border-radius:6px;border-left:3px solid #333;cursor:pointer;min-width:160px}
+.unit-card.hero{border-left-color:#4ade80}
+.unit-card.enemy{border-left-color:#ef4444}
+.unit-card.selected{border-color:#ffd700;background:rgba(255,215,0,.1)}
+.unit-card .hp-bar{width:80px;height:6px;background:#333;border-radius:3px;overflow:hidden}
+.unit-card .hp-fill{height:100%;background:#22c55e;border-radius:3px;transition:width .3s}
+.action-bar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:rgba(0,0,0,.8);border-radius:8px;padding:8px}
+.act-btn{padding:8px 14px;border-radius:6px;border:1px solid #555;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;font-size:.8em}
+.act-btn:hover{border-color:#4ade80}
+.act-btn:disabled{opacity:.3;cursor:default}
+.act-btn.active{border-color:#ffd700;background:rgba(255,215,0,.1)}
+.end-turn-btn{position:absolute;bottom:60px;right:10px;padding:8px 16px;background:#4ade80;color:#0a1a12;border:none;border-radius:6px;cursor:pointer;font-weight:bold}
+.log-panel{position:absolute;bottom:10px;right:10px;width:250px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,.6);border-radius:8px;padding:8px;font-size:.7em}
+.log-msg{margin-bottom:2px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.log-msg.dmg{color:#ef4444}.log-msg.heal{color:#22c55e}.log-msg.info{color:#aaa}.log-msg.kill{color:#ffd700}
+.objective{position:absolute;top:50px;left:50%;transform:translateX(-50%);font-size:.85em;color:#aaf;font-size:.8em;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:12px}
+</style>
+</head>
+<body>
+<div id="menu">
+<h1>🌲 Cooperative Isometric RPG</h1>
+<p>Táctico isométrico cooperativo por turnos. Elige una misión y lucha con 4 héroes contra las fuerzas del mal.</p>
+<div class="mission-select" id="missionSelect"></div>
+<button id="startBtn" onclick="startGame()">⚔️ Iniciar Misión</button>
+</div>
+<div id="game" style="display:none">
+<canvas id="canvas"></canvas>
+<div id="hud">
+<div class="turn-indicator" id="turnInd">Turno 1 — Tus Héroes</div>
+<div class="unit-list" id="unitList"></div>
+<div class="action-bar" id="actionBar"></div>
+<button class="end-turn-btn" onclick="endHeroTurn()">⏭️ Fin Turno</button>
+<div class="log-panel" id="logPanel"></div>
+<div class="objective" id="objective"></div>
+</div>
+</div>
+<script>
+const HERO_DEFS={
+guerrero:{kind:"guerrero",name:"Kael",cls:"Guerrero",hp:36,atk:7,mov:3,rng:1,color:"#f59e0b",port:"⚔️",skill:{name:"Golpe Sísmico",cd:3,power:0,desc:"Daña a todos los adyacentes"},desc:"Aguanta la línea."},
+arquera:{kind:"arquera",name:"Lyra",cls:"Arquera",hp:24,atk:6,mov:4,rng:3,color:"#10b981",port:"🏹",skill:{name:"Lluvia de Flechas",cd:3,power:0,desc:"Flechas sobre zona"},desc:"Precisión letal."},
+maga:{kind:"maga",name:"Nova",cls:"Maga",hp:20,atk:8,mov:3,rng:3,color:"#3b82f6",port:"🔮",skill:{name:"Nova Arcana",cd:4,power:0,desc:"Explosión arcana"},desc:"Devastadora."},
+sanadora:{kind:"sanadora",name:"Selene",cls:"Sanadora",hp:22,atk:4,mov:3,rng:2,color:"#a855f7",port:"🌿",skill:{name:"Plegaria de Luz",cd:4,power:0,desc:"Sana aliados cercanos"},desc:"Su luz mantiene al grupo."}
+};
+const ENEMY_DEFS={
+goblin:{kind:"goblin",name:"Goblin",cls:"Goblin",hp:14,atk:4,mov:3,rng:1,color:"#65a30d",port:"👺"},
+chaman:{kind:"chaman",name:"Chamán",cls:"Chamán",hp:13,atk:5,mov:3,rng:2,color:"#ca8a04",port:"🧙"},
+esqueleto:{kind:"esqueleto",name:"Esqueleto",cls:"Esqueleto",hp:18,atk:5,mov:3,rng:1,color:"#d4d4d8",port:"💀"},
+golem:{kind:"golem",name:"Gólem",cls:"Gólem",hp:30,atk:7,mov:2,rng:1,color:"#78716c",port:"🗿"},
+boss:{kind:"boss",name:"Vhorag",cls:"Señor del Caos",hp:64,atk:9,mov:3,rng:2,color:"#dc2626",port:"😈"}
+};
+const MISSIONS=[
+{id:1,name:"El Bosque Corrupto",tagline:"La corrupción avanza.",size:12,theme:"forest",
+enemies:[{kind:"goblin",x:8,z:2},{kind:"goblin",x:9,z:4},{kind:"goblin",x:6,z:3},{kind:"goblin",x:9,z:7},{kind:"goblin",x:7,z:8},{kind:"chaman",x:9,z:9}],
+heroSpawns:[{x:2,z:2},{x:2,z:3},{x:3,z:2},{x:3,z:3}],obj:"Derrotá a todos los enemigos"},
+{id:2,name:"Las Ruinas del Alba",tagline:"Los cristales se apagan.",size:13,theme:"ruins",
+enemies:[{kind:"esqueleto",x:5,z:5},{kind:"esqueleto",x:8,z:3},{kind:"esqueleto",x:3,z:9},{kind:"golem",x:7,z:7},{kind:"boss",x:10,z:10}],
+heroSpawns:[{x:1,z:1},{x:1,z:2},{x:2,z:1},{x:2,z:2}],obj:"Derrotá a Vhorag"},
+{id:3,name:"La Senda de Ceniza",tagline:"El fuego nunca se apaga.",size:14,theme:"ash",
+enemies:[{kind:"goblin",x:10,z:5},{kind:"goblin",x:8,z:9},{kind:"chaman",x:11,z:3},{kind:"esqueleto",x:6,z:11},{kind:"golem",x:12,z:8},{kind:"boss",x:11,z:11}],
+heroSpawns:[{x:2,z:2},{x:2,z:3},{x:3,z:2},{x:3,z:3}],obj:"Sobrevive y derrota al Señor del Caos"}
+];
+
+let selectedMission=null,grid=[],units=[],turn=1,phase="hero";
+let selectedUnit=null,mode="idle",highlights=[],log=[];
+let canvas,ctx,lastTime=0;
+const TILE_W=44,TILE_H=22;
+
+function initMenu(){
+const el=document.getElementById("missionSelect");
+MISSIONS.forEach(m=>{
+const d=document.createElement("div");d.className="mission-card";
+d.innerHTML=`<h3>${m.name}</h3><p>${m.tagline}</p><p style="font-size:.7em;color:#888">Enemigos: ${m.enemies.length}</p>`;
+d.onclick=()=>{selectedMission=m;el.querySelectorAll(".mission-card").forEach(c=>c.style.borderColor="#333");d.style.borderColor="#4ade80";document.getElementById("startBtn").style.display="block"};
+el.appendChild(d);
+});
+}
+
+function startGame(){
+if(!selectedMission)return;
+document.getElementById("menu").style.display="none";
+document.getElementById("game").style.display="block";
+canvas=document.getElementById("canvas");ctx=canvas.getContext("2d");
+initMission(selectedMission);
+resizeCanvas();lastTime=performance.now();
+canvas.addEventListener("click",onCanvasClick);
+requestAnimationFrame(gameLoop);
+}
+
+function initMission(m){
+const sz=m.size;
+// Build grid
+grid=[];
+const theme=m.theme;
+for(let z=0;z<sz;z++)for(let x=0;x<sz;x++){
+let walkable=true,topY=0;
+// Add obstacles based on theme
+const seed=Math.sin(x*127.1+z*311.7)*43758;
+if(theme==="forest"&&seed%1<0.15)walkable=false;
+if(theme==="ruins"&&seed%1<0.1)walkable=false;
+if(theme==="ash"&&seed%1<0.12)walkable=false;
+// Borders
+if(x===0||z===0||x===sz-1||z===sz-1)walkable=false;
+grid.push({x,z,walkable,topY,theme});
+}
+// Create units
+units=[];
+const heroOrder=["guerrero","arquera","maga","sanadora"];
+heroOrder.forEach((k,i)=>{
+const def=HERO_DEFS[k];
+const sp=m.heroSpawns[i]||{x:2,z:2+i};
+units.push({...def,hp:def.hp,maxHp:def.hp,moved:false,acted:false,cooldown:0,team:"hero",alive:true,x:sp.x,z:sp.z,id:"h_"+i});
+});
+m.enemies.forEach((e,i)=>{
+const def=ENEMY_DEFS[e.kind];
+units.push({...def,hp:def.hp,maxHp:def.hp,moved:false,acted:false,cooldown:0,team:"enemy",alive:true,x:e.x,z:e.z,id:"e_"+i});
+});
+turn=1;phase="hero";selectedUnit=null;mode="idle";highlights=[];log=[];
+addLog("info",`¡${m.name} comienza! ${m.obj}`);
+updateUI();
+}
+
+function resizeCanvas(){const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.floor(window.innerWidth*dpr);canvas.height=Math.floor(window.innerHeight*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+window.addEventListener("resize",()=>{if(canvas)resizeCanvas()});
+
+function gridToScreen(gx,gz){
+const ox=window.innerWidth/2;const oy=window.innerHeight/2-50;
+return{x:ox+(gx-gz)*(TILE_W/2),y:oy+(gx+gz)*(TILE_H/2)};
+}
+
+function onCanvasClick(e){
+if(phase!=="hero")return;
+const rect=canvas.getBoundingClientRect();
+const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+const ox=window.innerWidth/2;const oy=window.innerHeight/2-50;
+// Convert screen to grid
+const a=(sx-ox)/(TILE_W/2);const b=(sy-oy)/(TILE_H/2);
+const gx=Math.round((b+a)/2);const gz=Math.round((b-a)/2);
+if(gx<0||gz<0||gx>=selectedMission.size||gz>=selectedMission.size)return;
+
+if(mode==="move"){
+if(highlights.some(h=>h.x===gx&&h.z===gz)){
+selectedUnit.x=gx;selectedUnit.z=gz;selectedUnit.moved=true;
+mode="idle";highlights=[];
+addLog("info",`${selectedUnit.name} se mueve a (${gx},${gz})`);
+updateUI();return;
+}
+}
+
+if(mode==="attack"){
+const target=units.find(u=>u.alive&&u.team==="enemy"&&u.x===gx&&u.z===gz);
+if(target&&highlights.some(h=>h.x===gx&&h.z===gz)){
+doAttack(selectedUnit,target);
+mode="idle";highlights=[];selectedUnit.acted=true;
+if(!selectedUnit.moved)selectedUnit.moved=true;
+updateUI();return;
+}
+}
+
+if(mode==="skill"){
+if(selectedUnit.team==="hero"&&selectedUnit.skill){
+useSkill(selectedUnit,gx,gz);
+mode="idle";highlights=[];selectedUnit.acted=true;
+if(!selectedUnit.moved)selectedUnit.moved=true;
+updateUI();return;
+}
+}
+
+// Select unit
+const clickedUnit=units.find(u=>u.alive&&u.x===gx&&u.z===gz);
+if(clickedUnit&&clickedUnit.team==="hero"&&!clickedUnit.moved){
+selectedUnit=clickedUnit;mode="idle";highlights=[];
+showMoveRange(selectedUnit);
+updateUI();return;
+}
+if(clickedUnit&&clickedUnit.team==="hero"&&clickedUnit.moved&&!clickedUnit.acted){
+selectedUnit=clickedUnit;mode="idle";highlights=[];updateUI();return;
+}
+}
+
+function showMoveRange(unit){
+highlights=[];
+for(let z=0;z<selectedMission.size;z++)for(let x=0;x<selectedMission.size;x++){
+const dist=Math.abs(x-unit.x)+Math.abs(z-unit.z);
+if(dist>0&&dist<=unit.mov&&grid[z*selectedMission.size+x].walkable&&!units.some(u=>u.alive&&u.x===x&&u.z===z)){
+highlights.push({x,z,type:"move"});
+}
+}
+}
+
+function showAttackRange(unit){
+highlights=[];
+const range=unit.rng;
+for(let z=0;z<selectedMission.size;z++)for(let x=0;x<selectedMission.size;x++){
+const dist=Math.abs(x-unit.x)+Math.abs(z-unit.z);
+if(dist>0&&dist<=range){
+const target=units.find(u=>u.alive&&u.team==="enemy"&&u.x===x&&u.z===z);
+if(target)highlights.push({x,z,type:"attack"});
+}
+}
+}
+
+function doAttack(attacker,target){
+const dmg=Math.max(1,Math.round(attacker.atk*0.7-target.atk*0.2)*(0.85+Math.random()*0.3));
+target.hp=Math.max(0,target.hp-dmg);
+addLog("dmg",`${attacker.name} ataca a ${target.name} por ${dmg} daño`);
+if(target.hp<=0){target.alive=false;addLog("kill",`💀 ${target.name} ha sido derrotado`)}
+}
+
+function useSkill(hero,gx,gz){
+if(!hero.skill||hero.cooldown>0)return;
+hero.cooldown=hero.skill.cd;
+if(hero.kind==="guerrero"){
+// Quake: damage all adjacent enemies
+let hits=0;
+units.filter(u=>u.alive&&u.team==="enemy"&&Math.abs(u.x-hero.x)+Math.abs(u.z-hero.z)<=2).forEach(u=>{
+const dmg=Math.max(1,Math.round(hero.atk*1.5));
+u.hp=Math.max(0,u.hp-dmg);hits++;
+addLog("dmg",`${hero.skill.name} golpea a ${u.name} por ${dmg}`);
+if(u.hp<=0){u.alive=false;addLog("kill",`💀 ${u.name} derrotado`)}
+});
+addLog("info",`${hero.name} usa ${hero.skill.name} (${hits} objetivos)`);
+}else if(hero.kind==="arquera"){
+// Arrow rain: damage in 3x3 area
+units.filter(u=>u.alive&&u.team==="enemy"&&Math.abs(u.x-gx)+Math.abs(u.z-gz)<=2).forEach(u=>{
+const dmg=Math.max(1,Math.round(hero.atk*1.3));
+u.hp=Math.max(0,u.hp-dmg);
+addLog("dmg",`${hero.skill.name} golpea a ${u.name} por ${dmg}`);
+if(u.hp<=0){u.alive=false;addLog("kill",`💀 ${u.name} derrotado`)}
+});
+addLog("info",`${hero.name} usa ${hero.skill.name}`);
+}else if(hero.kind==="maga"){
+// Arcane Nova: damage all enemies in range 4
+units.filter(u=>u.alive&&u.team==="enemy"&&Math.abs(u.x-hero.x)+Math.abs(u.z-hero.z)<=4).forEach(u=>{
+const dmg=Math.max(1,Math.round(hero.atk*1.4));
+u.hp=Math.max(0,u.hp-dmg);
+addLog("dmg",`${hero.skill.name} golpea a ${u.name} por ${dmg}`);
+if(u.hp<=0){u.alive=false;addLog("kill",`💀 ${u.name} derrotado`)}
+});
+addLog("info",`${hero.name} usa ${hero.skill.name}`);
+}else if(hero.kind==="sanadora"){
+// Prayer: heal all allies
+units.filter(u=>u.alive&&u.team==="hero"&&Math.abs(u.x-hero.x)+Math.abs(u.z-hero.z)<=3).forEach(u=>{
+const heal=Math.round(hero.atk*3);
+u.hp=Math.min(u.maxHp,u.hp+heal);
+addLog("heal",`${hero.skill.name} sana a ${u.name} por ${heal}`);
+});
+addLog("info",`${hero.name} usa ${hero.skill.name}`);
+}
+}
+
+function endHeroTurn(){
+selectedUnit=null;mode="idle";highlights=[];
+// Mark all heroes as acted
+units.filter(u=>u.team==="hero"&&u.alive).forEach(u=>{u.moved=true;u.acted=true});
+// Enemy turn
+phase="enemy";
+setTimeout(()=>{doEnemyTurns();},500);
+}
+
+function doEnemyTurns(){
+const enemies=units.filter(u=>u.team==="enemy"&&u.alive);
+let delay=0;
+enemies.forEach(e=>{
+delay+=400;
+setTimeout(()=>{
+doEnemyAI(e);
+// Check victory/defeat
+const aliveHeroes=units.filter(u=>u.team==="hero"&&u.alive).length;
+const aliveEnemies=units.filter(u=>u.team==="enemy"&&u.alive).length;
+if(aliveEnemies===0){addLog("kill","🏆 ¡VICTORIA! Todos los enemigos han sido derrotados.");phase="victory";updateUI();return}
+if(aliveHeroes===0){addLog("kill","💀 DERROTA. Todos los héroes han caído.");phase="defeat";updateUI();return}
+updateUI();
+},delay);
+});
+// After all enemy turns, start new hero turn
+setTimeout(()=>{
+if(phase!=="victory"&&phase!!="defeat"){
+turn++;phase="hero";
+units.filter(u=>u.team==="hero"&&u.alive).forEach(u=>{u.moved=false;u.acted=false;
+if(u.cooldown>0)u.cooldown--;
+if(u.hp<u.maxHp)u.hp=Math.min(u.maxHp,u.hp+2)});
+units.filter(u=>u.team==="enemy"&&u.alive).forEach(u=>{u.moved=false;u.acted=false;
+if(u.cooldown>0)u.cooldown--});
+addLog("info",`--- Turno ${turn} ---`);
+updateUI();
+}
+},delay+500);
+}
+
+function doEnemyAI(enemy){
+const targets=units.filter(u=>u.team==="hero"&&u.alive);
+if(targets.length===0)return;
+const target=targets.sort((a,b)=>Math.abs(a.x-enemy.x)+Math.abs(a.z-enemy.z)-Math.abs(b.x-enemy.x)-Math.abs(b.z-enemy.z))[0];
+const dist=Math.abs(target.x-enemy.x)+Math.abs(target.z-enemy.z);
+if(dist<=enemy.rng){
+// Attack
+const dmg=Math.max(1,Math.round(enemy.atk*0.7));
+target.hp=Math.max(0,target.hp-dmg);
+addLog("dmg",`${enemy.name} ataca a ${target.name} por ${dmg}`);
+if(target.hp<=0){target.alive=false;addLog("kill",`💀 ${target.name} ha caído`)}
+}else{
+// Move toward
+const dx=Math.sign(target.x-enemy.x);const dz=Math.sign(target.z-enemy.z);
+let nx=enemy.x+dx,nz=enemy.z+dz;
+if(nx>=0&&nx<selectedMission.size&&nz>=0&&nz<selectedMission.size&&grid[nz*selectedMission.size+nx].walkable&&!units.some(u=>u.alive&&u.x===nx&&u.z===nz)){
+enemy.x=nx;enemy.z=nz;
+}else if(dz!==0){nz=enemy.z+dz;
+if(nz>=0&&nz<selectedMission.size&&grid[nz*selectedMission.size+enemy.x].walkable&&!units.some(u=>u.alive&&u.x===enemy.x&&u.z===nz)){
+enemy.z=nz;
+}}
+}
+}
+
+function addLog(type,msg){log.push({type,msg});if(log.length>30)log.shift()}
+
+function gameLoop(now){
+if(!canvas)return;
+const dt=Math.min(.1,(now-lastTime)/1000);lastTime=now;
+render(now);
+requestAnimationFrame(gameLoop);
+}
+
+function render(time){
+const w=window.innerWidth,h=window.innerHeight;
+ctx.fillStyle="#0a1a12";ctx.fillRect(0,0,w,h);
+const sz=selectedMission?selectedMission.size:12;
+const ox=w/2,oy=h/2-50;
+// Draw grid
+for(let z=0;z<sz;z++)for(let x=0;x<sz;x++){
+const tile=grid[z*sz+x];if(!tile)continue;
+const s=gridToScreen(x,z);
+// Tile
+ctx.fillStyle=tile.walkable?(tile.theme==="forest"?"#1a3a1a":tile.theme==="ruins"?"#2a2520":"#2a1a1a"):"#0a0a0a";
+ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+TILE_W/2,s.y+TILE_H/2);ctx.lineTo(s.x,s.y+TILE_H);ctx.lineTo(s.x-TILE_W/2,s.y+TILE_H/2);ctx.closePath();ctx.fill();
+ctx.strokeStyle="rgba(255,255,255,0.05)";ctx.stroke();
+if(!tile.walkable){ctx.fillStyle="rgba(0,0,0,0.5)";ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+TILE_W/2,s.y+TILE_H/2);ctx.lineTo(s.x,s.y+TILE_H);ctx.lineTo(s.x-TILE_W/2,s.y+TILE_H/2);ctx.closePath();ctx.fill();
+ctx.fillStyle="#3a3020";ctx.font="14px sans-serif";ctx.textAlign="center";ctx.fillText(tile.theme==="forest"?"🌲":tile.theme==="ruins"?"🪨":"🔥",s.x,s.y+TILE_H/2+4)}
+}
+// Highlights
+highlights.forEach(h=>{
+const s=gridToScreen(h.x,h.z);
+ctx.fillStyle=h.type==="move"?"rgba(74,222,128,0.25)":"rgba(239,68,68,0.3)";
+ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+TILE_W/2,s.y+TILE_H/2);ctx.lineTo(s.x,s.y+TILE_H);ctx.lineTo(s.x-TILE_W/2,s.y+TILE_H/2);ctx.closePath();ctx.fill();
+});
+// Units (sorted by depth)
+const sorted=[...units].filter(u=>u.alive).sort((a,b)=>(a.x+a.z)-(b.x+b.z));
+sorted.forEach(u=>{
+const s=gridToScreen(u.x,u.z);
+const cx=s.x,cy=s.y+TILE_H/2-4;
+const isSel=selectedUnit&&selectedUnit.id===u.id;
+// Shadow
+ctx.fillStyle="rgba(0,0,0,0.3)";ctx.beginPath();ctx.ellipse(cx,cy+8,10,4,0,0,Math.PI*2);ctx.fill();
+// Body
+if(isSel){ctx.strokeStyle="#ffd700";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,12,0,Math.PI*2);ctx.stroke()}
+ctx.fillStyle=u.color;ctx.beginPath();ctx.arc(cx,cy-2,10,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font="14px sans-serif";ctx.textAlign="center";ctx.fillText(u.port,cx,cy+2);
+// Name
+ctx.fillStyle="#fff";ctx.font="8px sans-serif";ctx.fillText(u.name,cx,cy-14);
+// HP bar
+const barW=20;
+ctx.fillStyle="#333";ctx.fillRect(cx-barW/2,cy-18,barW,3);
+ctx.fillStyle="#22c55e";ctx.fillRect(cx-barW/2,cy-18,barW*(u.hp/u.maxHp),3);
+// Cooldown indicator
+if(u.cooldown>0){ctx.fillStyle="rgba(0,0,0,0.5)";ctx.beginPath();ctx.arc(cx,cy-2,10,0,Math.PI*2);ctx.fill();
+ctx.fillStyle="#fff";ctx.font="bold 10px sans-serif";ctx.fillText(u.cooldown,cx,cy+2)}
+// Status dots
+if(u.moved&&u.team==="hero"){ctx.fillStyle="rgba(255,255,0,0.3)";ctx.beginPath();ctx.arc(cx,cy-2,10,0,Math.PI*2);ctx.fill()}
+});
+}
+
+function updateUI(){
+// Turn indicator
+const team=phase==="hero"?"Tus Héroes":phase==="enemy"?"Enemigos":phase==="victory"?"🏆 Victoria":"💀 Derrota";
+document.getElementById("turnInd").textContent=`Turno ${turn} — ${team}`;
+document.getElementById("turnInd").style.color=phase==="hero"?"#4ade80":phase==="enemy"?"#ef4444":phase==="victory"?"#ffd700":"#ef4444";
+// Unit list
+document.getElementById("unitList").innerHTML=[...units].filter(u=>u.alive||u.team==="hero").map(u=>
+`<div class="unit-card ${u.team} ${selectedUnit&&selectedUnit.id===u.id?"selected":""}" onclick="selectUnit('${u.id}')">
+<span style="font-size:1.2em">${u.port}</span>
+<div style="flex:1"><div style="font-size:.8em;font-weight:bold">${u.name}</div>
+<div style="font-size:.65em;color:#aaa">${u.cls} HP:${u.hp}/${u.maxHp}${u.cooldown>0?" CD:"+u.cooldown:""}</div>
+<div class="hp-bar"><div class="hp-fill" style="width:${(u.hp/u.maxHp)*100}%"></div></div></div></div>`
+).join("");
+// Action bar
+if(selectedUnit&&selectedUnit.team==="hero"&&phase==="hero"){
+const u=selectedUnit;
+document.getElementById("actionBar").innerHTML=`
+<button class="act-btn ${mode==="move"?"active":""}" ${u.moved?"disabled":""} onclick="startMove()">🚶 Mover (${u.mov})</button>
+<button class="act-btn ${mode==="attack"?"active":""}" onclick="startAttack()">⚔️ Atacar (${u.rng})</button>
+<button class="act-btn ${mode==="skill"?"active":""}" ${u.skill&&u.cooldown===0&&!u.acted?"":"disabled"} onclick="startSkill()">${u.skill?u.skill.port||"✨":""} ${u.skill?u.skill.name:""}${u.cooldown>0?" ("+u.cooldown+")":""}</button>`;
+}else{
+document.getElementById("actionBar").innerHTML=`<div style="padding:8px;color:#888;font-size:.8em">Selecciona un héroe</div>`;
+}
+// Objective
+document.getElementById("objective").textContent=selectedMission?selectedMission.obj:"";
+// Log
+document.getElementById("logPanel").innerHTML=log.slice(-10).map(m=>
+`<div class="log-msg ${m.type}">${m.msg}</div>`
+).join("");
+document.getElementById("logPanel").scrollTop=999;
+}
+
+function selectUnit(id){
+const u=units.find(u=>u.id===id);
+if(!u)return;
+if(u.team==="hero"&&phase==="hero"&&!u.moved){
+selectedUnit=u;mode="idle";highlights=[];showMoveRange(u);updateUI();
+}else if(u.team==="hero"&&phase==="hero"&&u.moved&&!u.acted){
+selectedUnit=u;mode="idle";highlights=[];updateUI();
+}
+}
+
+function startMove(){if(selectedUnit){mode="move";showMoveRange(selectedUnit);updateUI()}}
+function startAttack(){if(selectedUnit){mode="attack";showAttackRange(selectedUnit);updateUI()}}
+function startSkill(){if(selectedUnit&&selectedUnit.skill&&selectedUnit.cooldown===0){mode="skill";showAttackRange(selectedUnit);updateUI()}}
+
+window.selectUnit=selectUnit;
+window.startMove=startMove;
+window.startAttack=startAttack;
+window.startSkill=startSkill;
+window.endHeroTurn=endHeroTurn;
+
+initMenu();
+</script>
+</body>
+</html>
